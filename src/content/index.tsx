@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { FloatButton } from 'antd';
 import { CustomerServiceOutlined } from '@ant-design/icons';
+import 'antd/dist/reset.css';
 
 const FloatingButton = () => {
   const handleClick = () => {
