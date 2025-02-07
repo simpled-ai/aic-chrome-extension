@@ -1,32 +1,27 @@
 import { createRoot } from 'react-dom/client';
-import { FloatButton } from 'antd';
-import { CustomerServiceOutlined } from '@ant-design/icons';
+import { ConfigProvider, theme } from 'antd';
 import 'antd/dist/reset.css';
+import { FloatingAnalyzeButton } from '../components/FloatingAnalyzeButton';
 
-const FloatingButton = () => {
-  const handleClick = () => {
-    console.log('Button clicked!');
-    // Add your button click logic here
-  };
-
-  return (
-    <FloatButton
-      icon={<CustomerServiceOutlined />}
-      type="primary"
-      onClick={handleClick}
-      style={{
-        right: 24,
-        bottom: 24,
-      }}
-    />
-  );
-};
+console.log('Content script loaded');
 
 // Create container for the floating button
 const container = document.createElement('div');
 container.id = 'aic-extension-root';
 document.body.appendChild(container);
 
+console.log('Container created:', container);
+
 // Render the floating button
 const root = createRoot(container);
-root.render(<FloatingButton />); 
+root.render(
+  <ConfigProvider
+    theme={{
+      algorithm: theme.defaultAlgorithm,
+    }}
+  >
+    <FloatingAnalyzeButton />
+  </ConfigProvider>
+);
+
+console.log('Button rendered'); 
