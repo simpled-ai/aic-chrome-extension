@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "AIC Chrome Extension",
+  "version": "1.0.0",
+  "description": "A Chrome extension that shows a floating button on X (Twitter) and YouTube",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://twitter.com/*",
+    "https://x.com/*",
+    "https://www.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://twitter.com/*",
+        "https://x.com/*",
+        "https://www.youtube.com/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+} 
