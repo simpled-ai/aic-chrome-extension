@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { FloatButton, theme } from 'antd';
 import {
-	PieChartOutlined,
-	SmileOutlined,
-	FrownOutlined,
-	ExportOutlined,
-	ApiOutlined,
-	LoadingOutlined,
-	SyncOutlined,
+  PieChartOutlined,
+  SmileOutlined,
+  FrownOutlined,
+  ExportOutlined,
+  ApiOutlined,
+  LoadingOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { ContentProcessingStatus } from '../types';
 import { createTask, getTaskStatus, getAnalysisUrl } from '../services/api';
@@ -33,6 +33,7 @@ const getButtonProps = (
     return {
       icon: <ApiOutlined />,
       style: { opacity: 0.5 },
+      tooltip: 'Failed to connect to the server. Please contact the developer.',
     };
   }
 
