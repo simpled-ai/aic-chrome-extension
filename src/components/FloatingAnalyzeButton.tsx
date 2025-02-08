@@ -20,6 +20,7 @@ interface ButtonProps {
   icon?: React.ReactNode;
   type?: 'default' | 'primary';
   style?: React.CSSProperties;
+  tooltip?: string;
 }
 
 const getButtonProps = (
@@ -39,10 +40,12 @@ const getButtonProps = (
     case 'NONE':
       return {
 				icon: <PieChartOutlined />,
+        tooltip: 'Analyze this content',
       };
     case 'CRAWLING':
       return {
 				icon: <LoadingOutlined />,
+        tooltip: 'Crawling...',
       };
     case 'CRAWLED':
     case 'ANALYZING':
@@ -52,6 +55,7 @@ const getButtonProps = (
           backgroundColor: presetPalettes.gold[2],
           color: token.colorTextLightSolid,
         },
+        tooltip: 'Analyzing...',
       };
     case 'ANALYZED':
       return {
@@ -60,6 +64,7 @@ const getButtonProps = (
           backgroundColor: presetPalettes.green[2],
           color: token.colorTextLightSolid,
         },
+        tooltip: 'See analysis',
       };
     case 'FAILED':
       return {
@@ -68,11 +73,13 @@ const getButtonProps = (
           backgroundColor: presetPalettes.red[2],
           color: token.colorTextLightSolid,
         },
+        tooltip: 'Failed to analyze. Please contact the developer.',
       };
     default:
       return {
         icon: <PieChartOutlined />,
         type: 'primary',
+        tooltip: 'Analyze this content',
       };
   }
 };
