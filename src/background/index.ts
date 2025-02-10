@@ -12,7 +12,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'CREATE_TASK') {
-    createTask(request.tweetId)
+    createTask(request.payload)
       .then(sendResponse)
       .catch(error => sendResponse({ error: error.message }));
     return true; // Will respond asynchronously
@@ -32,17 +32,7 @@ const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
   return response.json();
 };
 
-const createTask = async (tweetId: string): Promise<CreateTaskResponse> => {
-  const payload: CreateTaskPayload = {
-    type: 'CRAWL',
-    priority: 0,
-    crawlConfig: {
-      platform: 'TWITTER',
-      crawlType: 'POST',
-      targetId: tweetId,
-    },
-  };
-
+const createTask = async (payload: CreateTaskPayload): Promise<CreateTaskResponse> => {
   const response = await fetch(`${API_BASE_URL}/tasks`, {
     method: 'POST',
     headers: {

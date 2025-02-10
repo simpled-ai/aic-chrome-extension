@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FloatButton, theme } from 'antd';
+import { FloatButton, theme, Modal, DatePicker, Button } from 'antd';
 import {
   PieChartOutlined,
   SmileOutlined,
@@ -8,12 +8,16 @@ import {
   ApiOutlined,
   LoadingOutlined,
   SyncOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
-import { ContentProcessingStatus } from '../types';
+import { ContentProcessingStatus, Platform, CrawlType } from '../types';
 import { createTask, getTaskStatus, getAnalysisUrl } from '../services/api';
 import { extractTweetId } from '../utils/twitter';
+import { extractVideoId } from '../utils/youtube';
 import { presetPalettes } from '@ant-design/colors';
+import dayjs from 'dayjs';
 
+const { RangePicker } = DatePicker;
 const POLLING_INTERVAL = 5000; // 5 seconds
 
 interface ButtonProps {
@@ -22,6 +26,36 @@ interface ButtonProps {
   style?: React.CSSProperties;
   tooltip?: string;
 }
+
+interface ContentInfo {
+  id: string;
+  platform: Platform;
+  crawlType: CrawlType;
+}
+
+const extractContentInfo = (url: string): ContentInfo | null => {
+  // Try Twitter first
+  const tweetId = extractTweetId(url);
+  if (tweetId) {
+    return {
+      id: tweetId,
+      platform: 'TWITTER',
+      crawlType: 'POST',
+    };
+  }
+
+  // Try YouTube
+  const videoId = extractVideoId(url);
+  if (videoId) {
+    return {
+      id: videoId,
+      platform: 'YOUTUBE',
+      crawlType: 'VIDEO',
+    };
+  }
+
+  return null;
+};
 
 const getButtonProps = (
   status: ContentProcessingStatus,
@@ -90,23 +124,25 @@ export const FloatingAnalyzeButton: React.FC = () => {
   const [status, setStatus] = useState<ContentProcessingStatus>('NONE');
   const [isError, setIsError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [tweetId, setTweetId] = useState<string | null>(null);
+  const [contentInfo, setContentInfo] = useState<ContentInfo | null>(null);
   const [lastUrl, setLastUrl] = useState<string>(window.location.href);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [timeRange, setTimeRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [isCreatingReport, setIsCreatingReport] = useState(false);
 
   // Initial URL check
   useEffect(() => {
     const currentUrl = window.location.href;
     console.log('Initial URL check:', currentUrl);
-    const extractedId = extractTweetId(currentUrl);
-    console.log('Initial extracted ID:', extractedId);
-    if (extractedId) {
-      setTweetId(extractedId);
+    const info = extractContentInfo(currentUrl);
+    console.log('Initial content info:', info);
+    if (info) {
+      setContentInfo(info);
     }
   }, []); // Run only once on mount
 
   const pollStatus = useCallback(async (id: string) => {
     try {
-      // Check if chrome.runtime is still available
       if (!chrome.runtime?.id) {
         console.log('Extension context invalidated, reloading page...');
         window.location.reload();
@@ -119,7 +155,6 @@ export const FloatingAnalyzeButton: React.FC = () => {
     } catch (error) {
       console.error('Error polling status:', error);
       if ((error as Error).message === 'Extension context invalidated.') {
-        // If the extension context is invalidated, reload the page
         window.location.reload();
         return;
       }
@@ -128,10 +163,9 @@ export const FloatingAnalyzeButton: React.FC = () => {
   }, []);
 
   const handleClick = useCallback(async () => {
-    if (!tweetId || isError) return;
+    if (!contentInfo || isError) return;
 
     try {
-      // Check if chrome.runtime is still available
       if (!chrome.runtime?.id) {
         console.log('Extension context invalidated, reloading page...');
         window.location.reload();
@@ -139,10 +173,18 @@ export const FloatingAnalyzeButton: React.FC = () => {
       }
 
       if (status === 'NONE') {
-        await createTask(tweetId);
-        await pollStatus(tweetId);
+        await createTask(contentInfo.id, {
+          type: 'CRAWL',
+          priority: 1,
+          crawlConfig: {
+            platform: contentInfo.platform,
+            crawlType: contentInfo.crawlType,
+            targetId: contentInfo.id,
+          },
+        });
+        await pollStatus(contentInfo.id);
       } else if (status === 'ANALYZED') {
-        window.open(getAnalysisUrl(tweetId), '_blank');
+        window.open(getAnalysisUrl(contentInfo.id), '_blank');
       }
     } catch (error) {
       console.error('Error handling click:', error);
@@ -152,21 +194,21 @@ export const FloatingAnalyzeButton: React.FC = () => {
       }
       setIsError(true);
     }
-  }, [tweetId, isError, status, pollStatus]);
+  }, [contentInfo, isError, status, pollStatus]);
 
   // URL change effect
   useEffect(() => {
-    const updateTweetId = () => {
+    const updateContentInfo = () => {
       const currentUrl = window.location.href;
       console.log('Checking URL change:', { currentUrl, lastUrl });
       if (currentUrl !== lastUrl) {
         console.log('URL changed from', lastUrl, 'to', currentUrl);
         setLastUrl(currentUrl);
-        const extractedId = extractTweetId(currentUrl);
-        console.log('Extracted ID:', extractedId, 'Current tweetId:', tweetId);
-        if (extractedId !== tweetId) {
-          console.log('Setting new tweet ID:', extractedId);
-          setTweetId(extractedId);
+        const info = extractContentInfo(currentUrl);
+        console.log('Extracted content info:', info);
+        if (info?.id !== contentInfo?.id) {
+          console.log('Setting new content info:', info);
+          setContentInfo(info);
           setStatus('NONE');
           setIsError(false);
         }
@@ -178,18 +220,18 @@ export const FloatingAnalyzeButton: React.FC = () => {
 
     history.pushState = function() {
       pushState.apply(history, arguments as any);
-      updateTweetId();
+      updateContentInfo();
     };
 
     history.replaceState = function() {
       replaceState.apply(history, arguments as any);
-      updateTweetId();
+      updateContentInfo();
     };
 
-    window.addEventListener('popstate', updateTweetId);
+    window.addEventListener('popstate', updateContentInfo);
 
     const observer = new MutationObserver(() => {
-      updateTweetId();
+      updateContentInfo();
     });
 
     observer.observe(document.body, {
@@ -197,28 +239,27 @@ export const FloatingAnalyzeButton: React.FC = () => {
       subtree: true,
     });
 
-    updateTweetId();
+    updateContentInfo();
 
     return () => {
-      window.removeEventListener('popstate', updateTweetId);
+      window.removeEventListener('popstate', updateContentInfo);
       observer.disconnect();
       history.pushState = pushState;
       history.replaceState = replaceState;
     };
-  }, [lastUrl, tweetId]);
+  }, [lastUrl, contentInfo]);
 
   // Polling effect
-	useEffect(() => {
-		console.log('tweetId', tweetId);
-    if (!tweetId) return;
+  useEffect(() => {
+    if (!contentInfo?.id) return;
 
     let intervalId: NodeJS.Timeout;
     
     const startPolling = () => {
-      pollStatus(tweetId);
+      pollStatus(contentInfo.id);
       intervalId = setInterval(() => {
         if (chrome.runtime?.id) {
-          pollStatus(tweetId);
+          pollStatus(contentInfo.id);
         } else {
           clearInterval(intervalId);
           window.location.reload();
@@ -233,23 +274,81 @@ export const FloatingAnalyzeButton: React.FC = () => {
         clearInterval(intervalId);
       }
     };
-  }, [tweetId, pollStatus]);
+  }, [contentInfo, pollStatus]);
 
-  if (!tweetId) return null;
+  const handleCreateReport = async () => {
+    if (!timeRange) return;
+
+    try {
+      setIsCreatingReport(true);
+      const [startTime, endTime] = timeRange;
+      const response = await createTask('', {
+        type: 'ANALYZE',
+        priority: 1,
+        analyzeConfig: {
+          contentIds: [],
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        },
+      });
+
+      window.open(getAnalysisUrl(response.data.id), '_blank');
+      setIsModalVisible(false);
+    } catch (error) {
+      console.error('Error creating report:', error);
+    } finally {
+      setIsCreatingReport(false);
+    }
+  };
 
   const buttonProps = getButtonProps(status, isError, isHovered, token);
 
+  const bottomInset = contentInfo?.platform === 'TWITTER' ? 122 + 24 : 24;
+
   return (
-    <FloatButton
-      {...buttonProps}
-      onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        ...buttonProps.style,
-        right: 24,
-        bottom: 24 + 122,
-      }}
-    />
+    <>
+      <FloatButton.Group style={{ bottom: bottomInset }}>
+        {contentInfo && <FloatButton
+          {...buttonProps}
+          onClick={handleClick}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        />}
+        <FloatButton
+          icon={<PlusOutlined />}
+          onClick={() => setIsModalVisible(true)}
+          tooltip="Create report"
+        />
+      </FloatButton.Group>
+
+      <Modal
+        title="Create Time Range Report"
+        open={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="create"
+            type="primary"
+            loading={isCreatingReport}
+            onClick={handleCreateReport}
+            disabled={!timeRange}
+          >
+            Create Report
+          </Button>,
+        ]}
+      >
+        <div style={{ marginTop: 16 }}>
+          <RangePicker
+            showTime
+            format="YYYY-MM-DD HH:mm:ss"
+            onChange={(dates) => setTimeRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
+            style={{ width: '100%' }}
+          />
+        </div>
+      </Modal>
+    </>
   );
 }; 

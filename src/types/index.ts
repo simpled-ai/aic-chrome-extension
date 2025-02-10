@@ -16,16 +16,29 @@ export interface TaskStatusResponse {
 
 export interface CreateTaskResponse {
   success: boolean;
+  data: {
+    id: string;
+  };
 }
 
+export type Platform = 'TWITTER' | 'YOUTUBE';
+export type CrawlType = 'POST' | 'VIDEO';
+
 export interface CrawlConfig {
-  platform: 'TWITTER';
-  crawlType: 'POST';
+  platform: Platform;
+  crawlType: CrawlType;
   targetId: string;
 }
 
+export interface AnalyzeConfig {
+  contentIds: string[];
+  startTime: string;
+  endTime: string;
+}
+
 export interface CreateTaskPayload {
-  type: 'CRAWL';
+  type: 'CRAWL' | 'ANALYZE';
   priority: number;
-  crawlConfig: CrawlConfig;
+  crawlConfig?: CrawlConfig;
+  analyzeConfig?: AnalyzeConfig;
 } 

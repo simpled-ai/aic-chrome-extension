@@ -1,4 +1,4 @@
-import { CreateTaskResponse, TaskStatusResponse } from '../types';
+import { CreateTaskResponse, TaskStatusResponse, CreateTaskPayload } from '../types';
 
 const ANALYSIS_BASE_URL = 'http://localhost:3001/analysis';
 
@@ -17,10 +17,24 @@ export const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse
   });
 };
 
-export const createTask = async (tweetId: string): Promise<CreateTaskResponse> => {
+export const createTask = async (tweetId: string, payload?: CreateTaskPayload): Promise<CreateTaskResponse> => {
+  const defaultPayload: CreateTaskPayload = {
+    type: 'CRAWL',
+    priority: 0,
+    crawlConfig: {
+      platform: 'TWITTER',
+      crawlType: 'POST',
+      targetId: tweetId,
+    },
+  };
+
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
-      { type: 'CREATE_TASK', tweetId },
+      { 
+        type: 'CREATE_TASK', 
+        tweetId,
+        payload: payload || defaultPayload,
+      },
       (response) => {
         if (response.error) {
           reject(new Error(response.error));
