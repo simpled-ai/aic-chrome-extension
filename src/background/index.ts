@@ -1,6 +1,6 @@
 import { CreateTaskPayload, TaskStatusResponse, CreateTaskResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://intranet.aic.academy/web-crawler/api';
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -13,6 +13,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.type === 'CREATE_TASK') {
     createTask(request.payload)
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true; // Will respond asynchronously
+  }
+
+  if (request.type === 'GET_ANALYSIS_ITEMS') {
+    getAnalysisItems()
       .then(sendResponse)
       .catch(error => sendResponse({ error: error.message }));
     return true; // Will respond asynchronously
@@ -43,6 +50,19 @@ const createTask = async (payload: CreateTaskPayload): Promise<CreateTaskRespons
 
   if (!response.ok) {
     throw new Error('Failed to create task');
+  }
+  return response.json();
+};
+
+const getAnalysisItems = async () => {
+  const response = await fetch(`${API_BASE_URL}/analysis/items`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch analysis items');
   }
   return response.json();
 };

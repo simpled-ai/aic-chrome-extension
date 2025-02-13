@@ -1,6 +1,19 @@
 import { CreateTaskResponse, TaskStatusResponse, CreateTaskPayload } from '../types';
 
-const ANALYSIS_BASE_URL = 'http://localhost:3001/analysis';
+const ANALYSIS_BASE_URL = 'https://intranet.aic.academy/aic-admin/analysis';
+
+interface AnalysisItem {
+  platform: string;
+  id: string;
+  label: string;
+  type: 'CONTENT' | 'PROFILE';
+}
+
+interface AnalysisItemsResponse {
+  success: boolean;
+  data: AnalysisItem[];
+  error?: string;
+}
 
 export const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
   return new Promise((resolve, reject) => {
@@ -17,14 +30,14 @@ export const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse
   });
 };
 
-export const createTask = async (tweetId: string, payload?: CreateTaskPayload): Promise<CreateTaskResponse> => {
+export const createTask = async (targetId: string, payload?: CreateTaskPayload): Promise<CreateTaskResponse> => {
   const defaultPayload: CreateTaskPayload = {
     type: 'CRAWL',
     priority: 0,
     crawlConfig: {
       platform: 'TWITTER',
       crawlType: 'POST',
-      targetId: tweetId,
+      targetId: targetId,
     },
   };
 
@@ -32,7 +45,7 @@ export const createTask = async (tweetId: string, payload?: CreateTaskPayload): 
     chrome.runtime.sendMessage(
       { 
         type: 'CREATE_TASK', 
-        tweetId,
+        targetId,
         payload: payload || defaultPayload,
       },
       (response) => {
@@ -40,6 +53,21 @@ export const createTask = async (tweetId: string, payload?: CreateTaskPayload): 
           reject(new Error(response.error));
         } else {
           resolve(response);
+        }
+      }
+    );
+  });
+};
+
+export const getAnalysisItems = async (): Promise<AnalysisItem[]> => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'GET_ANALYSIS_ITEMS' },
+      (response: AnalysisItemsResponse) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve(response.data);
         }
       }
     );

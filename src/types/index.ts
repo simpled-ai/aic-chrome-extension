@@ -21,8 +21,8 @@ export interface CreateTaskResponse {
   };
 }
 
-export type Platform = 'TWITTER' | 'YOUTUBE';
-export type CrawlType = 'POST' | 'VIDEO';
+export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT';
+export type CrawlType = 'POST' | 'VIDEO' | 'COMPANY';
 
 export interface CrawlConfig {
   platform: Platform;
@@ -32,8 +32,9 @@ export interface CrawlConfig {
 
 export interface AnalyzeConfig {
   contentIds: string[];
-  startTime: string;
-  endTime: string;
+  profileIds: string[];
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface CreateTaskPayload {

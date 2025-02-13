@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FloatButton, theme, Modal, DatePicker, Button } from 'antd';
+import { FloatButton, theme, Modal, DatePicker, Button, Checkbox, List, Spin } from 'antd';
 import {
   PieChartOutlined,
   SmileOutlined,
@@ -9,16 +9,33 @@ import {
   LoadingOutlined,
   SyncOutlined,
   PlusOutlined,
+  TwitterOutlined,
+  YoutubeOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { ContentProcessingStatus, Platform, CrawlType } from '../types';
-import { createTask, getTaskStatus, getAnalysisUrl } from '../services/api';
+import { createTask, getTaskStatus, getAnalysisUrl, getAnalysisItems } from '../services/api';
 import { extractTweetId } from '../utils/twitter';
 import { extractVideoId } from '../utils/youtube';
+import { extractCompanyDomain } from '../utils/trustpilot';
 import { presetPalettes } from '@ant-design/colors';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const POLLING_INTERVAL = 5000; // 5 seconds
+
+const PlatformIcons: Record<string, React.ReactNode> = {
+  TWITTER: <TwitterOutlined style={{ color: '#1DA1F2' }} />,
+  YOUTUBE: <YoutubeOutlined style={{ color: '#FF0000' }} />,
+  TRUSTPILOT: <StarOutlined style={{ color: '#00B67A' }} />,
+};
+
+interface AnalysisItem {
+  platform: string;
+  id: string;
+  label: string;
+  type: 'CONTENT' | 'PROFILE';
+}
 
 interface ButtonProps {
   icon?: React.ReactNode;
@@ -51,6 +68,16 @@ const extractContentInfo = (url: string): ContentInfo | null => {
       id: videoId,
       platform: 'YOUTUBE',
       crawlType: 'VIDEO',
+    };
+  }
+
+  // Try Trustpilot
+  const companyDomain = extractCompanyDomain(url);
+  if (companyDomain) {
+    return {
+      id: companyDomain,
+      platform: 'TRUSTPILOT',
+      crawlType: 'COMPANY',
     };
   }
 
@@ -129,6 +156,9 @@ export const FloatingAnalyzeButton: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [timeRange, setTimeRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [isCreatingReport, setIsCreatingReport] = useState(false);
+  const [analysisItems, setAnalysisItems] = useState<AnalysisItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
 
   // Initial URL check
   useEffect(() => {
@@ -276,19 +306,50 @@ export const FloatingAnalyzeButton: React.FC = () => {
     };
   }, [contentInfo, pollStatus]);
 
+  // Load analysis items when modal opens
+  useEffect(() => {
+    if (isModalVisible) {
+      setIsLoadingItems(true);
+      getAnalysisItems()
+        .then(items => {
+          setAnalysisItems(items);
+          // Check all items by default
+          setSelectedItems(items.map(item => item.id));
+        })
+        .catch(error => {
+          console.error('Error loading analysis items:', error);
+        })
+        .finally(() => {
+          setIsLoadingItems(false);
+        });
+    }
+  }, [isModalVisible]);
+
   const handleCreateReport = async () => {
-    if (!timeRange) return;
+    console.log('Creating report with:', { timeRange, selectedItems });
+    if (!timeRange && selectedItems.length === 0) return;
 
     try {
       setIsCreatingReport(true);
-      const [startTime, endTime] = timeRange;
+      const [startTime, endTime] = timeRange ? timeRange : [undefined, undefined];
+      const contentIds = selectedItems.filter(
+        item => analysisItems.find(
+          i => i.id === item
+        )?.type === 'CONTENT'
+      );
+      const profileIds = selectedItems.filter(
+        item => analysisItems.find(
+          i => i.id === item
+        )?.type === 'PROFILE'
+      );
       const response = await createTask('', {
         type: 'ANALYZE',
         priority: 1,
         analyzeConfig: {
-          contentIds: [],
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          contentIds: contentIds,
+          profileIds: profileIds,
+          startTime: startTime?.toISOString(),
+          endTime: endTime?.toISOString(),
         },
       });
 
@@ -304,6 +365,10 @@ export const FloatingAnalyzeButton: React.FC = () => {
   const buttonProps = getButtonProps(status, isError, isHovered, token);
 
   const bottomInset = contentInfo?.platform === 'TWITTER' ? 122 + 24 : 24;
+
+  const onCheckAllChange = (e: { target: { checked: boolean } }) => {
+    setSelectedItems(e.target.checked ? analysisItems.map(item => item.id) : []);
+  };
 
   return (
     <>
@@ -322,7 +387,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
       </FloatButton.Group>
 
       <Modal
-        title="Create Time Range Report"
+        title="Create Report"
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
@@ -334,19 +399,84 @@ export const FloatingAnalyzeButton: React.FC = () => {
             type="primary"
             loading={isCreatingReport}
             onClick={handleCreateReport}
-            disabled={!timeRange}
+            disabled={!timeRange && selectedItems.length === 0}
           >
             Create Report
           </Button>,
         ]}
+        width={600}
       >
         <div style={{ marginTop: 16 }}>
           <RangePicker
             showTime
             format="YYYY-MM-DD HH:mm:ss"
             onChange={(dates) => setTimeRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
-            style={{ width: '100%' }}
+            style={{ width: '100%', marginBottom: 16 }}
           />
+
+          <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Select content to analyze:</span>
+            <Checkbox
+              checked={selectedItems.length === analysisItems.length}
+              indeterminate={selectedItems.length > 0 && selectedItems.length < analysisItems.length}
+              onChange={onCheckAllChange}
+            >
+              Select All
+            </Checkbox>
+          </div>
+          
+          {isLoadingItems ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <Spin />
+            </div>
+          ) : (
+            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <List
+                size="small"
+                dataSource={analysisItems}
+                renderItem={(item) => (
+                  <List.Item style={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox
+                      checked={selectedItems.includes(item.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedItems([...selectedItems, item.id]);
+                        } else {
+                          setSelectedItems(selectedItems.filter(id => id !== item.id));
+                        }
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8,
+                        flex: 1,
+                        marginTop: 1.5,
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 8,
+                          fontSize: 16
+                        }}>
+                          {PlatformIcons[item.platform]}
+                        </div>
+                        <div style={{ 
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '400px'
+                        }}>
+                          {item.label}
+                        </div>
+                      </div>
+                    </Checkbox>
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
         </div>
       </Modal>
     </>
