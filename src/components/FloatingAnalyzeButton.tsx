@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { FloatButton, theme, Modal, DatePicker, Button, Checkbox, List, Spin } from 'antd';
 import {
   PieChartOutlined,
@@ -12,12 +12,14 @@ import {
   TwitterOutlined,
   YoutubeOutlined,
   StarOutlined,
+  FacebookOutlined,
 } from '@ant-design/icons';
-import { ContentProcessingStatus, Platform, CrawlType } from '../types';
+import { ContentProcessingStatus, Platform, CrawlType, ContentExtractResult } from '../types';
 import { createTask, getTaskStatus, getAnalysisUrl, getAnalysisItems } from '../services/api';
-import { extractTweetId } from '../utils/twitter';
-import { extractVideoId } from '../utils/youtube';
-import { extractCompanyDomain } from '../utils/trustpilot';
+import { extractTwitterInfo } from '../utils/twitter';
+import { extractYouTubeInfo } from '../utils/youtube';
+import { extractTrustpilotInfo } from '../utils/trustpilot';
+import { extractFacebookInfo } from '../utils/facebook';
 import { presetPalettes } from '@ant-design/colors';
 import dayjs from 'dayjs';
 
@@ -28,6 +30,7 @@ const PlatformIcons: Record<string, React.ReactNode> = {
   TWITTER: <TwitterOutlined style={{ color: '#1DA1F2' }} />,
   YOUTUBE: <YoutubeOutlined style={{ color: '#FF0000' }} />,
   TRUSTPILOT: <StarOutlined style={{ color: '#00B67A' }} />,
+  FACEBOOK: <FacebookOutlined style={{ color: '#1877F2' }} />,
 };
 
 interface AnalysisItem {
@@ -45,43 +48,29 @@ interface ButtonProps {
 }
 
 interface ContentInfo {
-  id: string;
+  id: string | null;
   platform: Platform;
-  crawlType: CrawlType;
+  crawlType: CrawlType | null;
 }
 
 const extractContentInfo = (url: string): ContentInfo | null => {
-  // Try Twitter first
-  const tweetId = extractTweetId(url);
-  if (tweetId) {
-    return {
-      id: tweetId,
-      platform: 'TWITTER',
-      crawlType: 'POST',
-    };
-  }
+  let result: ContentExtractResult | null = null;
 
-  // Try YouTube
-  const videoId = extractVideoId(url);
-  if (videoId) {
-    return {
-      id: videoId,
-      platform: 'YOUTUBE',
-      crawlType: 'VIDEO',
-    };
-  }
+  // Try each platform's extractor
+  result = extractTwitterInfo(url);
+  if (!result.platform) result = extractYouTubeInfo(url);
+  if (!result.platform) result = extractTrustpilotInfo(url);
+  if (!result.platform) result = extractFacebookInfo(url);
 
-  // Try Trustpilot
-  const companyDomain = extractCompanyDomain(url);
-  if (companyDomain) {
-    return {
-      id: companyDomain,
-      platform: 'TRUSTPILOT',
-      crawlType: 'COMPANY',
-    };
-  }
+  console.log('Extracted content info:', result);
 
-  return null;
+  if (result.platform === null) return null;
+
+  return {
+    id: result.id,
+    platform: result.platform,
+    crawlType: result.crawlType,
+  };
 };
 
 const getButtonProps = (
@@ -193,7 +182,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
   }, []);
 
   const handleClick = useCallback(async () => {
-    if (!contentInfo || isError) return;
+    if (!contentInfo?.id || !contentInfo.platform || !contentInfo.crawlType || isError) return;
 
     try {
       if (!chrome.runtime?.id) {
@@ -281,15 +270,15 @@ export const FloatingAnalyzeButton: React.FC = () => {
 
   // Polling effect
   useEffect(() => {
-    if (!contentInfo?.id) return;
+    if (!contentInfo || contentInfo.id === null) return;
 
     let intervalId: NodeJS.Timeout;
     
     const startPolling = () => {
-      pollStatus(contentInfo.id);
+      pollStatus(contentInfo.id!);
       intervalId = setInterval(() => {
         if (chrome.runtime?.id) {
-          pollStatus(contentInfo.id);
+          pollStatus(contentInfo.id!);
         } else {
           clearInterval(intervalId);
           window.location.reload();
@@ -364,7 +353,16 @@ export const FloatingAnalyzeButton: React.FC = () => {
 
   const buttonProps = getButtonProps(status, isError, isHovered, token);
 
-  const bottomInset = contentInfo?.platform === 'TWITTER' ? 122 + 24 : 24;
+  const bottomInset = useMemo(() => {
+    switch (contentInfo?.platform) {
+      case 'TWITTER':
+        return 122 + 24;
+      case 'FACEBOOK':
+        return 450 + 24;
+    default:
+        return 24;
+    }
+  }, [contentInfo]);
 
   const onCheckAllChange = (e: { target: { checked: boolean } }) => {
     setSelectedItems(e.target.checked ? analysisItems.map(item => item.id) : []);
@@ -373,7 +371,10 @@ export const FloatingAnalyzeButton: React.FC = () => {
   return (
     <>
       <FloatButton.Group style={{ bottom: bottomInset }}>
-        {contentInfo && <FloatButton
+        {contentInfo?.id &&
+          contentInfo.platform &&
+          contentInfo.crawlType &&
+          <FloatButton
           {...buttonProps}
           onClick={handleClick}
           onMouseEnter={() => setIsHovered(true)}

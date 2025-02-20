@@ -1,16 +1,34 @@
-export const extractCompanyDomain = (url: string): string | null => {
-  console.log('Extracting company domain from URL:', url);
+import { ContentExtractResult } from '../types';
+
+export const extractTrustpilotInfo = (url: string): ContentExtractResult => {
+  console.log('Extracting Trustpilot info from URL:', url);
   
-  // Handle Trustpilot review URL format
-  // e.g., https://www.trustpilot.com/review/www.facebook.com
-  const pattern = /trustpilot\.com\/review\/([^/?&#]+)/;
-  const match = url.match(pattern);
-  
-  if (match && match[1]) {
-    console.log('Extracted company domain:', match[1]);
-    return match[1];
+  const result: ContentExtractResult = {
+    id: null,
+    platform: null,
+    crawlType: null
+  };
+
+  // Check if it's a Trustpilot URL
+  if (url.match(/^https?:\/\/(.*\.)?trustpilot\.com/)) {
+    result.platform = 'TRUSTPILOT';
+    
+    // Check for company review page
+    const companyMatch = url.match(/trustpilot\.com\/review\/([^?&#/]+)/);
+    if (companyMatch) {
+      result.id = companyMatch[1];
+      result.crawlType = 'COMPANY';
+    }
+    // Check for individual review
+    else if (url.includes('/reviews/')) {
+      const reviewMatch = url.match(/\/reviews\/([^?&#]+)/);
+      if (reviewMatch) {
+        result.id = reviewMatch[1];
+        result.crawlType = 'POST';
+      }
+    }
   }
 
-  console.log('No company domain found');
-  return null;
+  console.log('Extracted Trustpilot info:', result);
+  return result;
 }; 

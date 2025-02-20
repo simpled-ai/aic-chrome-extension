@@ -21,8 +21,14 @@ export interface CreateTaskResponse {
   };
 }
 
-export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT';
-export type CrawlType = 'POST' | 'VIDEO' | 'COMPANY';
+export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT' | 'FACEBOOK';
+export type CrawlType = 'POST' | 'VIDEO' | 'COMPANY' | 'PROFILE';
+
+export interface ContentExtractResult {
+  id: string | null;
+  platform: Platform | null;
+  crawlType: CrawlType | null;
+}
 
 export interface CrawlConfig {
   platform: Platform;
