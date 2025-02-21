@@ -1,11 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { FloatButton, theme, Modal, DatePicker, Button, Checkbox, List, Spin } from 'antd';
 import {
-  PieChartOutlined,
-  SmileOutlined,
-  FrownOutlined,
-  ExportOutlined,
-  ApiOutlined,
+  PieChartOutlined, FrownOutlined, ApiOutlined,
   LoadingOutlined,
   SyncOutlined,
   PlusOutlined,
@@ -13,9 +9,13 @@ import {
   YoutubeOutlined,
   StarOutlined,
   FacebookOutlined,
+  MailOutlined,
+  DownloadOutlined,
+  ExportOutlined,
+  SmileOutlined
 } from '@ant-design/icons';
 import { ContentProcessingStatus, Platform, CrawlType, ContentExtractResult } from '../types';
-import { createTask, getTaskStatus, getAnalysisUrl, getAnalysisItems } from '../services/api';
+import { createTask, getTaskStatus, getAnalysisUrl, getAnalysisItems, getEmailDownloadUrl } from '../services/api';
 import { extractTwitterInfo } from '../utils/twitter';
 import { extractYouTubeInfo } from '../utils/youtube';
 import { extractTrustpilotInfo } from '../utils/trustpilot';
@@ -140,6 +140,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
   const [status, setStatus] = useState<ContentProcessingStatus>('NONE');
   const [isError, setIsError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isEmailButtonHovered, setIsEmailButtonHovered] = useState(false);
   const [contentInfo, setContentInfo] = useState<ContentInfo | null>(null);
   const [lastUrl, setLastUrl] = useState<string>(window.location.href);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -373,13 +374,34 @@ export const FloatingAnalyzeButton: React.FC = () => {
       <FloatButton.Group style={{ bottom: bottomInset }}>
         {contentInfo?.id &&
           contentInfo.platform &&
-          contentInfo.crawlType &&
-          <FloatButton
-          {...buttonProps}
-          onClick={handleClick}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        />}
+          contentInfo.crawlType && (
+            <>
+              <FloatButton
+                {...buttonProps}
+                onClick={handleClick}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              />
+              {status === 'ANALYZED' && (
+                <FloatButton
+                  icon={isEmailButtonHovered ? <DownloadOutlined /> : <MailOutlined />}
+                  tooltip={ 'Download emails'}
+                  style={{ 
+                    backgroundColor: presetPalettes.blue[2],
+                    color: token.colorTextLightSolid,
+                  }}
+                  onMouseEnter={() => setIsEmailButtonHovered(true)}
+                  onMouseLeave={() => setIsEmailButtonHovered(false)}
+                  onClick={() => {
+                    if (contentInfo?.id) {
+                      // open a new tab with the email analysis url
+                      window.open(getEmailDownloadUrl(contentInfo.id), '_blank');
+                    }
+                  }}
+                />
+              )}
+            </>
+          )}
         <FloatButton
           icon={<PlusOutlined />}
           onClick={() => setIsModalVisible(true)}

@@ -1,6 +1,7 @@
 import { CreateTaskResponse, TaskStatusResponse, CreateTaskPayload } from '../types';
 
 const ANALYSIS_BASE_URL = 'https://intranet.aic.academy/aic-admin/analysis';
+const API_BASE_URL = 'https://intranet.aic.academy/web-crawler/api';
 
 interface AnalysisItem {
   platform: string;
@@ -76,4 +77,8 @@ export const getAnalysisItems = async (): Promise<AnalysisItem[]> => {
 
 export const getAnalysisUrl = (tweetId: string): string => {
   return `${ANALYSIS_BASE_URL}/${tweetId}`;
+}; 
+
+export const getEmailDownloadUrl = (tweetId: string): string => {
+  return `${API_BASE_URL}/analysis/content/${tweetId}/csv?filter=email`;
 }; 

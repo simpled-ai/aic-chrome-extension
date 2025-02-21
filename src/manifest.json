@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AIC Chrome Extension",
-  "version": "1.0.0",
+  "version": "0.1.2-alpha",
   "description": "A Chrome extension that shows a floating button on X (Twitter), YouTube, and Trustpilot",
   "permissions": [
     "activeTab"
