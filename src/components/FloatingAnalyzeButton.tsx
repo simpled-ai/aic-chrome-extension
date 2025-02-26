@@ -12,7 +12,9 @@ import {
   MailOutlined,
   DownloadOutlined,
   ExportOutlined,
-  SmileOutlined
+  SmileOutlined,
+  ReadOutlined,
+  BookOutlined
 } from '@ant-design/icons';
 import { ContentProcessingStatus, Platform, CrawlType, ContentExtractResult } from '../types';
 import { createTask, getTaskStatus, getAnalysisUrl, getAnalysisItems, getEmailDownloadUrl } from '../services/api';
@@ -20,6 +22,8 @@ import { extractTwitterInfo } from '../utils/twitter';
 import { extractYouTubeInfo } from '../utils/youtube';
 import { extractTrustpilotInfo } from '../utils/trustpilot';
 import { extractFacebookInfo } from '../utils/facebook';
+import { extractCourseraInfo } from '../utils/coursera';
+import { extractUdemyInfo } from '../utils/udemy';
 import { presetPalettes } from '@ant-design/colors';
 import dayjs from 'dayjs';
 
@@ -31,6 +35,8 @@ const PlatformIcons: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeOutlined style={{ color: '#FF0000' }} />,
   TRUSTPILOT: <StarOutlined style={{ color: '#00B67A' }} />,
   FACEBOOK: <FacebookOutlined style={{ color: '#1877F2' }} />,
+  COURSERA: <ReadOutlined style={{ color: '#2A73CC' }} />,
+  UDEMY: <BookOutlined style={{ color: '#A435F0' }} />,
 };
 
 interface AnalysisItem {
@@ -61,6 +67,8 @@ const extractContentInfo = (url: string): ContentInfo | null => {
   if (!result.platform) result = extractYouTubeInfo(url);
   if (!result.platform) result = extractTrustpilotInfo(url);
   if (!result.platform) result = extractFacebookInfo(url);
+  if (!result.platform) result = extractCourseraInfo(url);
+  if (!result.platform) result = extractUdemyInfo(url);
 
   console.log('Extracted content info:', result);
 
@@ -149,6 +157,31 @@ export const FloatingAnalyzeButton: React.FC = () => {
   const [analysisItems, setAnalysisItems] = useState<AnalysisItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [checkAll, setCheckAll] = useState(false);
+
+  // Listen for Udemy course ID extraction event
+  useEffect(() => {
+    const handleUdemyCourseIdExtracted = (event: CustomEvent) => {
+      const { courseId } = event.detail;
+      console.log('Received Udemy course ID:', courseId);
+      
+      // Update the content info if we're on a Udemy page
+      if (window.location.href.includes('udemy.com/course/') && contentInfo?.platform === 'UDEMY') {
+        setContentInfo({
+          ...contentInfo,
+          id: courseId
+        });
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('udemyCourseIdExtracted', handleUdemyCourseIdExtracted as EventListener);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('udemyCourseIdExtracted', handleUdemyCourseIdExtracted as EventListener);
+    };
+  }, [contentInfo]);
 
   // Initial URL check
   useEffect(() => {

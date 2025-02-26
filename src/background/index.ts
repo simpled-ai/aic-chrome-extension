@@ -70,9 +70,9 @@ const getAnalysisItems = async () => {
 // Listen for when a tab is updated
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
-    // Check if the URL matches Twitter/X, YouTube, or Facebook
+    // Check if the URL matches Twitter/X, YouTube, Facebook, Coursera, or Udemy
     if (
-      tab.url.match(/^https?:\/\/(.*\.)?(twitter\.com|x\.com|youtube\.com|facebook\.com)/)
+      tab.url.match(/^https?:\/\/(.*\.)?(twitter\.com|x\.com|youtube\.com|facebook\.com|coursera\.org|udemy\.com)/)
     ) {
       console.log('Matching site detected:', tab.url);
     }
