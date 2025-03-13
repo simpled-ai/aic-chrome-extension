@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { ConfigProvider, theme } from 'antd';
 import 'antd/dist/reset.css';
-import { FloatingAnalyzeButton } from '../components/FloatingAnalyzeButton';
+import { FloatingAnalyzeButton } from '../components';
 
 // Declare the global window property for TypeScript
 declare global {
