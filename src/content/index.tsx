@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { ConfigProvider, theme } from 'antd';
 import 'antd/dist/reset.css';
-import { FloatingAnalyzeButton } from '../components';
+import { FloatingAnalyzeButton, SummaryDisplay } from '../components';
 
 // Declare the global window property for TypeScript
 declare global {
@@ -63,6 +63,24 @@ if (window.location.href.includes('udemy.com/course/')) {
   observer.observe(document.body, { attributes: true });
 }
 
+// Listen for YouTube summary render events
+document.addEventListener('renderYouTubeSummary', ((event: CustomEvent) => {
+  const { summary, rootElement } = event.detail;
+  
+  if (summary && rootElement) {
+    const summaryRoot = createRoot(rootElement);
+    summaryRoot.render(
+      <ConfigProvider
+        theme={{
+          algorithm: theme.defaultAlgorithm,
+        }}
+      >
+        <SummaryDisplay summary={summary} />
+      </ConfigProvider>
+    );
+  }
+}) as EventListener);
+
 // Render the floating button
 const root = createRoot(container);
 root.render(
@@ -71,7 +89,9 @@ root.render(
       algorithm: theme.defaultAlgorithm,
     }}
   >
-    <FloatingAnalyzeButton />
+    <>
+      <FloatingAnalyzeButton />
+    </>
   </ConfigProvider>
 );
 

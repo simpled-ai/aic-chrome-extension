@@ -1,1 +1,2 @@
-export { FloatingAnalyzeButton } from './FloatingAnalyzeButton/index'; 
+export { FloatingAnalyzeButton } from './FloatingAnalyzeButton/index';
+export * from './YouTubeSummarizer/index';

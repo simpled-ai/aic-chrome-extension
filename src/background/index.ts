@@ -24,6 +24,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'GET_VIDEO_SUMMARY') {
+    getVideoSummary(request.videoId)
+      .then(data => sendResponse({ data }))
+      .catch(error => sendResponse({ error: error.message }));
+    return true; // Will respond asynchronously
+  }
+
+  if (request.type === 'CREATE_VIDEO_SUMMARY') {
+    createVideoSummary(request.payload)
+      .then(data => sendResponse({ data }))
+      .catch(error => sendResponse({ error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -63,6 +77,36 @@ const getAnalysisItems = async () => {
 
   if (!response.ok) {
     throw new Error('Failed to fetch analysis items');
+  }
+  return response.json();
+};
+
+const getVideoSummary = async (videoId: string) => {
+  const response = await fetch(`${API_BASE_URL}/summarizer/${videoId}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch video summary');
+  }
+  return response.json();
+};
+
+const createVideoSummary = async (payload: {
+  videoId: string;
+}) => {
+  const response = await fetch(`${API_BASE_URL}/summarizer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create video summary');
   }
   return response.json();
 };

@@ -7,6 +7,7 @@ import { extractContentInfo } from './utils';
 import { getTaskStatus } from '../../services/api';
 import { AnalyzeButton } from './AnalyzeButton';
 import { ReportModal } from './ReportModal';
+import { YouTubeSummarizer } from '../YouTubeSummarizer';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -182,6 +183,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
           onClick={() => setIsModalVisible(true)}
           tooltip="Create report"
         />
+        <YouTubeSummarizer />
       </FloatButton.Group>
 
       <ReportModal

@@ -16,6 +16,59 @@ interface AnalysisItemsResponse {
   error?: string;
 }
 
+export interface VideoSummaryTopic {
+  id: string;
+  title: string;
+  summary: string;
+  startTime: number;
+  endTime: number;
+  summaryId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoSummaryKeyPoint {
+  id: string;
+  content: string;
+  timestamp: number;
+  summaryId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoSummaryQuote {
+  id: string;
+  content: string;
+  speaker: string | null;
+  timestamp: number;
+  summaryId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoSummaryLink {
+  id: string;
+  url: string;
+  title: string | null;
+  summaryId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoSummary {
+  id: string;
+  videoId: string;
+  title: string;
+  overallSummary: string;
+  finalThoughts: string;
+  createdAt: string;
+  updatedAt: string;
+  topics: VideoSummaryTopic[];
+  keyPoints: VideoSummaryKeyPoint[];
+  quotes: VideoSummaryQuote[];
+  links: VideoSummaryLink[];
+}
+
 export const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
@@ -81,4 +134,39 @@ export const getAnalysisUrl = (tweetId: string): string => {
 
 export const getEmailDownloadUrl = (tweetId: string): string => {
   return `${API_BASE_URL}/analysis/content/${tweetId}/csv?filter=email`;
+};
+
+export const getVideoSummary = async (videoId: string): Promise<VideoSummary> => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'GET_VIDEO_SUMMARY', videoId },
+      (response) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve(response.data);
+        }
+      }
+    );
+  });
+};
+
+export const createVideoSummary = async (videoId: string): Promise<VideoSummary> => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { 
+        type: 'CREATE_VIDEO_SUMMARY', 
+        payload: {
+          videoId
+        }
+      },
+      (response) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve(response.data);
+        }
+      }
+    );
+  });
 }; 
