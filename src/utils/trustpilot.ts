@@ -17,14 +17,14 @@ export const extractTrustpilotInfo = (url: string): ContentExtractResult => {
     const companyMatch = url.match(/trustpilot\.com\/review\/([^?&#/]+)/);
     if (companyMatch) {
       result.id = companyMatch[1];
-      result.crawlType = 'COMPANY';
+      result.crawlType = 'PROFILE';
     }
     // Check for individual review
     else if (url.includes('/reviews/')) {
       const reviewMatch = url.match(/\/reviews\/([^?&#]+)/);
       if (reviewMatch) {
         result.id = reviewMatch[1];
-        result.crawlType = 'POST';
+        result.crawlType = 'CONTENT';
       }
     }
   }

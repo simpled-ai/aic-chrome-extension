@@ -22,7 +22,7 @@ export interface CreateTaskResponse {
 }
 
 export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT' | 'FACEBOOK' | 'COURSERA' | 'UDEMY';
-export type CrawlType = 'POST' | 'VIDEO' | 'COMPANY' | 'PROFILE' | 'COURSE';
+export type CrawlType = 'CONTENT' | 'PROFILE' | 'KEYWORD';
 
 export interface ContentExtractResult {
   id: string | null;

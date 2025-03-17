@@ -17,7 +17,7 @@ export const extractCourseraInfo = (url: string): ContentExtractResult => {
     const courseMatch = url.match(/coursera\.org\/learn\/([^/?&#]+)/);
     if (courseMatch && courseMatch[1]) {
       result.id = courseMatch[1];
-      result.crawlType = 'COURSE';
+      result.crawlType = 'CONTENT';
     }
   }
 

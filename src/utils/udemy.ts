@@ -15,7 +15,7 @@ export const extractUdemyInfo = (url: string): ContentExtractResult => {
     
     // For Udemy, we need to extract the course ID from the DOM
     if (url.match(/udemy\.com\/course\//)) {
-      result.crawlType = 'COURSE';
+      result.crawlType = 'CONTENT';
       
       // Try to get the course ID from the global variable set by the content script
       if (typeof window !== 'undefined' && window.udemyCourseId) {

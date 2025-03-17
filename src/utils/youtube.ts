@@ -25,7 +25,7 @@ export const extractYouTubeInfo = (url: string): ContentExtractResult => {
       const match = url.match(pattern);
       if (match && match[1]) {
         result.id = match[1];
-        result.crawlType = 'VIDEO';
+        result.crawlType = 'CONTENT';
         break;
       }
     }

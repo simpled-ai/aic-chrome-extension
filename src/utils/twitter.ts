@@ -17,7 +17,7 @@ export const extractTwitterInfo = (url: string): ContentExtractResult => {
     const tweetMatch = url.match(/\/status\/(\d+)/);
     if (tweetMatch) {
       result.id = tweetMatch[1];
-      result.crawlType = 'POST';
+      result.crawlType = 'CONTENT';
     }
     // Check for profile
     else if (url.match(/twitter\.com\/[^/]+$/) || url.match(/x\.com\/[^/]+$/)) {

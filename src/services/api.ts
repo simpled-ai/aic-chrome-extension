@@ -90,7 +90,7 @@ export const createTask = async (targetId: string, payload?: CreateTaskPayload):
     priority: 0,
     crawlConfig: {
       platform: 'TWITTER',
-      crawlType: 'POST',
+      crawlType: 'CONTENT',
       targetId: targetId,
     },
   };

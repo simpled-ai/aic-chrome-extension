@@ -17,14 +17,14 @@ export const extractFacebookInfo = (url: string): ContentExtractResult => {
     const groupPostMatch = url.match(/facebook\.com\/groups\/[^/]+\/posts\/(\d+)/);
     if (groupPostMatch) {
       result.id = groupPostMatch[1];
-      result.crawlType = 'POST';
+      result.crawlType = 'CONTENT';
     }
     // Check for regular post
     else if (url.includes('/posts/')) {
       const postMatch = url.match(/\/posts\/(\d+)/);
       if (postMatch) {
         result.id = postMatch[1];
-        result.crawlType = 'POST';
+        result.crawlType = 'CONTENT';
       }
     }
     // Check for profile
