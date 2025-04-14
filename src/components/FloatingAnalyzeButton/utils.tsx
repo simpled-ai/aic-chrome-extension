@@ -6,6 +6,8 @@ import { extractTrustpilotInfo } from '../../utils/trustpilot';
 import { extractFacebookInfo } from '../../utils/facebook';
 import { extractCourseraInfo } from '../../utils/coursera';
 import { extractUdemyInfo } from '../../utils/udemy';
+import { extractKlingAIInfo } from '../../utils/klingai';
+import { extractOpenAICommunityInfo } from '../../utils/openai_community';
 import { presetPalettes } from '@ant-design/colors';
 import {
   PieChartOutlined,
@@ -27,6 +29,8 @@ export const extractContentInfo = (url: string): ContentInfo | null => {
   if (!result.platform) result = extractFacebookInfo(url);
   if (!result.platform) result = extractCourseraInfo(url);
   if (!result.platform) result = extractUdemyInfo(url);
+  if (!result.platform) result = extractKlingAIInfo(url);
+  if (!result.platform) result = extractOpenAICommunityInfo(url);
 
   console.log('Extracted content info:', result);
 

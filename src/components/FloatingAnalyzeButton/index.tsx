@@ -167,7 +167,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
 
   return (
     <>
-      <FloatButton.Group style={{ bottom: bottomInset }}>
+      <FloatButton.Group style={{ bottom: bottomInset, zIndex: 10000 }}>
         {contentInfo?.id &&
           contentInfo.platform &&
           contentInfo.crawlType && (

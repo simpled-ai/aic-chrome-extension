@@ -15,7 +15,26 @@ console.log('Content script loaded');
 // Create container for the floating button
 const container = document.createElement('div');
 container.id = 'aic-extension-root';
+// Append to document body, ensuring it's the last child
 document.body.appendChild(container);
+
+// Function to ensure container is the last element in the body
+const ensureContainerIsLastChild = () => {
+  if (container.parentNode === document.body && container !== document.body.lastElementChild) {
+    document.body.appendChild(container);
+  }
+};
+
+// Ensure the container stays as the last child when DOM changes
+const bodyObserver = new MutationObserver(() => {
+  ensureContainerIsLastChild();
+});
+
+// Start observing the document body for changes
+bodyObserver.observe(document.body, { 
+  childList: true, 
+  subtree: false 
+});
 
 console.log('Container created:', container);
 
@@ -94,5 +113,8 @@ root.render(
     </>
   </ConfigProvider>
 );
+
+// Final check to ensure container is the last child
+ensureContainerIsLastChild();
 
 console.log('Button rendered'); 

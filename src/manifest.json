@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AIC Chrome Extension",
   "version": "1.0.0.0226",
-  "description": "A Chrome extension that shows a floating button on X (Twitter), YouTube, Trustpilot, Facebook, Coursera, and Udemy",
+  "description": "A Chrome extension that shows a floating button on X (Twitter), YouTube, Trustpilot, Facebook, Coursera, Udemy, and Klingai",
   "permissions": [
     "activeTab"
   ],
@@ -14,6 +14,8 @@
     "https://www.facebook.com/*",
     "https://www.coursera.org/*",
     "https://www.udemy.com/*",
+    "https://app.klingai.com/*",
+    "https://community.openai.com/*",
     "http://localhost:3000/*",
     "http://intranet.aic.academy/web-crawler/*"
   ],
@@ -30,7 +32,9 @@
         "https://www.trustpilot.com/*",
         "https://www.facebook.com/*",
         "https://www.coursera.org/*",
-        "https://www.udemy.com/*"
+        "https://www.udemy.com/*",
+        "https://app.klingai.com/*",
+        "https://community.openai.com/*"
       ],
       "js": ["content.js"]
     }

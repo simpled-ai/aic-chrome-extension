@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Button, Collapse, Divider, List, Space, Tag, Tooltip, Typography } from 'antd';
 import {
-	BulbOutlined,
-	ClockCircleOutlined,
-	DownOutlined,
-	LinkOutlined,
-	MessageOutlined,
-	UpOutlined,
+  BulbOutlined,
+  ClockCircleOutlined,
+  DownOutlined,
+  LinkOutlined,
+  MessageOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import { VideoSummary } from '../../services/api';
 

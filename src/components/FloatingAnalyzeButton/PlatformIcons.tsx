@@ -5,7 +5,8 @@ import {
   StarOutlined,
   FacebookOutlined,
   ReadOutlined,
-  BookOutlined
+  BookOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 
 export const PlatformIcons: Record<string, React.ReactNode> = {
@@ -15,4 +16,7 @@ export const PlatformIcons: Record<string, React.ReactNode> = {
   FACEBOOK: <FacebookOutlined style={{ color: '#1877F2' }} />,
   COURSERA: <ReadOutlined style={{ color: '#2A73CC' }} />,
   UDEMY: <BookOutlined style={{ color: '#A435F0' }} />,
+  KLINGAI: <RobotOutlined style={{ color: '#7B68EE' }} />,
+  OPENAI_COMMUNITY: <RobotOutlined style={{ color: '#10A37F' }} />,
 }; 
+ 
