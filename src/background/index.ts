@@ -38,6 +38,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'SEND_RESEARCH_RESULT') {
+    sendResearchResult(request.payload)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -109,6 +116,30 @@ const createVideoSummary = async (payload: {
     throw new Error('Failed to create video summary');
   }
   return response.json();
+};
+
+const sendResearchResult = async ( payload: { topic: string, text: string }) => {
+  try {
+    // API endpoint - replace with your actual API URL
+    const API_ENDPOINT = 'http://127.0.0.1:3000/api/import';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      return { success: false, error: `API request failed` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error sending research result: ${error}` };
+  }
 };
 
 // Listen for when a tab is updated

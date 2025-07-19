@@ -8,6 +8,7 @@ import { extractCourseraInfo } from '../../utils/coursera';
 import { extractUdemyInfo } from '../../utils/udemy';
 import { extractKlingAIInfo } from '../../utils/klingai';
 import { extractOpenAICommunityInfo } from '../../utils/openai_community';
+import { sendResearchContent } from '../../services/api';
 import { presetPalettes } from '@ant-design/colors';
 import {
   PieChartOutlined,
@@ -18,6 +19,95 @@ import {
   ExportOutlined,
   SmileOutlined
 } from '@ant-design/icons';
+import {
+  ALL_QUESTION_PATTERNS,
+  ALL_ERROR_PATTERNS, VALIDATION_THRESHOLDS, ALL_PENDING_PATTERNS,
+  OVERLAY
+} from './constants';
+
+export interface ResearchItem {
+  id: string;
+  element: HTMLElement;
+  title: string;
+  content: string;
+  htmlHash: string;
+  isSent: boolean;
+}
+
+// Research related utility functions
+export const generateContentHash = (content: string): string => {
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString();
+};
+
+export const loadResearchSentStatus = (): Record<string, boolean> => {
+  try {
+    const saved = localStorage.getItem('aic-research-sent-status');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveResearchSentStatus = (hash: string): void => {
+  try {
+    const saved = loadResearchSentStatus();
+    saved[hash] = true;
+    localStorage.setItem('aic-research-sent-status', JSON.stringify(saved));
+  } catch (error) {
+    console.error('Error saving sent status:', error);
+  }
+};
+
+export const scanForResearchResults = (): ResearchItem[] => {
+  const researchDivs = document.querySelectorAll('.deep-research-result');
+  if (researchDivs.length === 0) { return []; }
+  
+  const items: ResearchItem[] = [];
+  const sentStatus = loadResearchSentStatus();
+
+  researchDivs.forEach((div, index) => {
+    if (!div.textContent) { return; }
+
+    let title = `Research ${index + 1}`;
+    try {
+      const titleElement = div.querySelector('h1');
+      if (titleElement && titleElement.textContent && titleElement.textContent.trim()) {
+        title = titleElement.textContent.trim();
+      }
+    } catch (error) {
+      return [];
+    }
+
+    // Limit title length
+    if (title.length > 100) {
+      title = title.substring(0, 100) + '...';
+    }
+
+    const textContent = div.textContent || '';
+    const contentPreview = textContent.length > 200 
+      ? textContent.substring(0, 200) + '...' 
+      : textContent;
+    
+    const htmlHash = generateContentHash(div.outerHTML || div.innerHTML || '');
+    
+    items.push({
+      id: `research-${index}`,
+      element: div as HTMLElement,
+      title,
+      content: contentPreview,
+      htmlHash,
+      isSent: sentStatus[htmlHash] || false
+    });
+  });
+
+  return items;
+};
 
 export const extractContentInfo = (url: string): ContentInfo | null => {
   let result: ContentExtractResult | null = null;
@@ -104,3 +194,271 @@ export const getButtonProps = (
       };
   }
 }; 
+
+// GPT AUTO RESEARCH
+// Start deep research mode
+export const startDeepResearchMode = async () => {
+  try {
+    document.body.appendChild(OVERLAY);
+    
+    // Check if deep research mode is already active
+    const mode = document.querySelector('[data-testid="active-system-hint-pill"]') as HTMLButtonElement;
+    if (mode && (mode.textContent === "Nghiên cứu" || mode.textContent === "Research")) {
+      return { success: true };
+    }
+    
+    // Click menu button to open dropdown
+    const menuButton = document.querySelector('button[id="system-hint-button"]') as HTMLButtonElement;
+    if (menuButton) {
+      try {
+        // Focus and Enter key
+        menuButton.focus();
+        const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+        menuButton.dispatchEvent(enterEvent);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        return { success: false };
+      }
+    } else {
+      return { success: false };
+    }
+
+    // Find deep research button in the menu
+    const menuContainer = document.querySelector('[role="menu"]') as HTMLElement;
+    if (menuContainer) {
+      menuContainer.focus();
+      
+      // Find the deep research button
+      const deepResearchButton = Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(
+        element => element.textContent === "Chạy nghiên cứu chuyên sâu" 
+                || element.textContent === "Deep research"
+      ) as HTMLElement;
+      if (deepResearchButton) {
+        deepResearchButton.click();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        return { success: false };
+      }
+    } else {
+      return { success: false };
+    }
+
+    return { success: true };
+    
+  } finally {
+    // Always remove overlay when done
+    try {
+      const existingOverlay = document.getElementById('deep-research-overlay');
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+    } catch (error) {
+      return { success: false, error: 'Error removing overlay' };
+    }
+  }
+};
+
+export const handleRequest = async ( topic: string, prompt: string, isRunningRef: React.RefObject<boolean> ):Promise<{
+  success: boolean;
+  error?: string;
+}> => {
+  try {
+    // Start deep research mode
+    const activateDeepResearchMode = await startDeepResearchMode();
+    if (!activateDeepResearchMode.success) {
+      return { success: false, error: 'Cannot activate deep research mode' };
+    }
+
+    // Get current message count to detect new response
+    const currentMessages = (document.querySelectorAll('[data-message-author-role="assistant"]')).length;
+      
+    const chatInput = document.querySelector('#prompt-textarea') as HTMLTextAreaElement | HTMLElement;
+    if (!chatInput) {
+      return { success: false, error: 'Cannot find ChatGPT input field. Please make sure ChatGPT is loaded properly and try refreshing the page.' };
+    }
+    // Input the research prompt
+    try {
+      if (chatInput.tagName === 'TEXTAREA') {
+        (chatInput as HTMLTextAreaElement).value = prompt;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        chatInput.textContent = prompt;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    } catch (error) {
+      return { success: false, error: 'Failed to input text into ChatGPT field' };
+    }
+
+    // Wait a bit for the input to register
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Find send button
+    const sendButton = document.querySelector('button[data-testid="send-button"]') as HTMLButtonElement;
+    if (!sendButton || sendButton.disabled) {
+      return { success: false, error: 'Error send button. Please try manually sending the message.' };
+    }
+
+    if (!isRunningRef.current) {
+      return { success: false, error: 'Research cancelled by user' };
+    }
+
+    // Click send button
+    try {
+      sendButton.click();
+    } catch (error) {
+      return { success: false, error: 'Failed to click send button' };
+    }
+    
+    // Wait for GPT response (without hard timeout) and return the response
+    const responseResult = await handleResponse(topic, currentMessages, isRunningRef);
+    if (!responseResult.success) {
+      return { success: false, error: responseResult.error };
+    }
+    const { validationResult } = responseResult;
+
+    // Handle different response types
+    switch (validationResult.responseType) {
+      case 'question':
+        const questionPrompt = `Hãy lựa chọn những điều bạn cho là tốt nhất và cần thiết để tìm hiểu về chủ đề: ${topic}.`;
+        return await handleRequest(topic, questionPrompt, isRunningRef);
+        
+      case 'error':
+        return { success: false, error: `GPT Error: ${validationResult.reason}` };
+
+      case 'research':
+        return { success: true };
+        
+      case 'normal':
+        const normalTextPrompt = `Tôi cần bạn tìm hiểu về chủ đề: ${topic}, và trả lời theo định dạng nghiên cứu.`;
+        return await handleRequest(topic, normalTextPrompt, isRunningRef);
+        
+      default:
+        return { success: false, error: `Unclear response from GPT: ${validationResult.reason}` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error occurred during research: ${error}` };
+  }
+}
+
+// Validate if the GPT response is a proper research result (supports Vietnamese)
+export const validateResponse = (responseContent: string): { 
+  responseType: 'question' | 'pending' | 'error' | 'normal' | 'research';
+  reason?: string;
+} => {
+  const content = responseContent.replace(/<[^>]*>/g, '').trim();
+
+  // 1. CHECK FOR QUESTIONS (highest priority)
+  let questionScore = 0;
+  for (const pattern of ALL_QUESTION_PATTERNS) {
+    if (pattern.test(content)) { questionScore += 1 }
+  }
+  questionScore += (content.match(/\?/g) || []).length;
+  
+  if (questionScore >= VALIDATION_THRESHOLDS.QUESTION_SCORE_THRESHOLD) {
+    return { 
+      responseType: 'question', 
+      reason: 'GPT is asking for clarification or more information',
+    };
+  }
+
+  // 2. CHECK FOR PENDING (second priority)
+  let pendingScore = 0;
+  for (const pattern of ALL_PENDING_PATTERNS) {
+    if (pattern.test(content)) { pendingScore += 1 }
+  }
+  if (pendingScore >= VALIDATION_THRESHOLDS.PENDING_SCORE_THRESHOLD) {
+    return { 
+      responseType: 'pending', 
+      reason: 'GPT is waiting for more information or processing',
+    };
+  }
+  
+
+  // 3. CHECK FOR ERRORS (second priority)
+  let errorScore = 0;
+  for (const pattern of ALL_ERROR_PATTERNS) {
+    if (pattern.test(content)) { errorScore += 1 }
+  }
+  if (errorScore >= VALIDATION_THRESHOLDS.ERROR_SCORE_THRESHOLD) {
+    return { 
+      responseType: 'error', 
+      reason: 'GPT returned an error message or limitation notice',
+    };
+  }
+  
+  // 4. DEFAULT TO NORMAL
+  return { 
+    responseType: 'normal', 
+    reason: 'Response is normal text',
+  };
+};
+
+// Handle response from GPT
+const handleResponse = async ( topic: string, msgCount: number, isRunningRef: React.RefObject<boolean> ):Promise<{
+  success: boolean;
+  error?: string;
+  validationResult?: any;
+}> => {
+  // Wait for streaming to complete with timeout and cancellation support
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const timeout = 3600000;
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout && isRunningRef.current) {
+    if (document.querySelector('[data-testid="stop-button"]')) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+      break;
+    }
+  }
+  if (Date.now() - startTime >= timeout) {
+    return { success: false, error: `GPT response timeout after 1 hour` };
+  }
+
+  if (!isRunningRef.current) {
+    return { success: false, error: 'Research cancelled by user' };
+  }
+  
+  // Check for new message
+  const newMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
+  if (newMessages.length > msgCount) {
+    const latestResponse = newMessages[newMessages.length - 1];
+    const responseContent = latestResponse.textContent || latestResponse.innerHTML;
+    if (responseContent) {
+      const deepResearch = latestResponse.querySelector('.deep-research-result') as HTMLElement;
+      const deepResearchContent = deepResearch?.innerText || deepResearch?.outerText;
+      if (deepResearchContent) {
+        // Send the research result directly
+        try {
+          const sendResult = await sendResearchContent(topic, deepResearchContent);
+          if (sendResult.success) {
+            return {
+              success: true,
+              validationResult: {
+                responseType: 'research',
+                reason: 'Response is research content',
+              },
+            };
+          } else {
+            return { success: false, error: sendResult.error };
+          }
+        } catch (error) {
+          return { success: false, error: `Error occurred during sending research content: ${error}` };
+        }
+      }
+      
+      // Validate the response
+      const validationResult = validateResponse(responseContent);
+      if (validationResult.responseType === 'pending') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return await handleResponse(topic, msgCount + 1, isRunningRef);
+      }
+      return { success: true, validationResult };
+    }
+  }
+  if (!isRunningRef.current) {
+    return { success: false, error: 'Research cancelled by user' };
+  }
+  return { success: false, error: 'No new message detected' };
+};

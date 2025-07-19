@@ -170,3 +170,46 @@ export const createVideoSummary = async (videoId: string): Promise<VideoSummary>
     );
   });
 }; 
+
+// Function to send specific research content to API
+export const sendResearchContent = async (topic: string, text: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (topic.trim().length === 0 || text.trim().length === 0) {
+      return { success: false, error: 'Topic or text is empty' };
+    }
+
+    const cleanedText = text
+      .replace(/\s*https?:\/\/[^\s]+\s*/g, ' ')
+      .replace(/\s*www\.[^\s]+\s*/g, ' ')
+      .replace(/\s*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*/g, ' ')
+      .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ') // Remove HTML entities
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n/g, '\n\n') // Normalize multiple line breaks to max 2
+      .replace(/^\s+|\s+$/g, '') // Remove leading/trailing whitespace
+      .trim();
+    
+    // Send message to background script
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          type: 'SEND_RESEARCH_RESULT',
+          payload: {
+            topic: topic,
+            text: cleanedText
+          }
+        },
+        (response) => {
+          resolve(response);
+        }
+      );
+    });
+  } catch (error) {
+    return { success: false, error: `Error sending research content: ${error}` };
+  }
+}; 
