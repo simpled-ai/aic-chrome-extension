@@ -209,7 +209,7 @@ export const startDeepResearchMode = async () => {
     
     // Click menu button to open dropdown
     const menuButton = document.querySelector('button[id="system-hint-button"]') as HTMLButtonElement;
-    if (menuButton) {
+    if (menuButton && (menuButton.textContent === "Công cụ" || menuButton.textContent === "Tools")) {
       try {
         // Focus and Enter key
         menuButton.focus();
@@ -230,7 +230,7 @@ export const startDeepResearchMode = async () => {
       
       // Find the deep research button
       const deepResearchButton = Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(
-        element => element.textContent === "Chạy nghiên cứu chuyên sâu" 
+        element => element.textContent === "Nghiên cứu sâu"
                 || element.textContent === "Deep research"
       ) as HTMLElement;
       if (deepResearchButton) {
@@ -422,12 +422,15 @@ const handleResponse = async ( topic: string, msgCount: number, isRunningRef: Re
   
   // Check for new message
   const newMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
+  console.log('newMessages', newMessages.length, msgCount);
   if (newMessages.length > msgCount) {
     const latestResponse = newMessages[newMessages.length - 1];
     const responseContent = latestResponse.textContent || latestResponse.innerHTML;
+    console.log('responseContent', responseContent);
     if (responseContent) {
       const deepResearch = latestResponse.querySelector('.deep-research-result') as HTMLElement;
       const deepResearchContent = deepResearch?.innerText || deepResearch?.outerText;
+      console.log('deepResearchContent', deepResearchContent);
       if (deepResearchContent) {
         // Send the research result directly
         try {
