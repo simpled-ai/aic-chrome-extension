@@ -315,7 +315,7 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel,
           <Card size="small" style={{ marginBottom: 8 }}>
               <div style={{ textAlign: 'center' }}>
                   <Text type="secondary">
-                      Processing topic {currentTopicIndex + 1} of {topics.length}
+                      Processing topic {currentTopicIndex + 1} of {topics.filter(t => t.status !== 'completed').length}
                   </Text>
                   <Progress percent={currentProgress} style={{ marginTop: 8 }} />
               </div>
