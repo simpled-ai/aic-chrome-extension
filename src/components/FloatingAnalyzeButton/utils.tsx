@@ -8,7 +8,6 @@ import { extractCourseraInfo } from '../../utils/coursera';
 import { extractUdemyInfo } from '../../utils/udemy';
 import { extractKlingAIInfo } from '../../utils/klingai';
 import { extractOpenAICommunityInfo } from '../../utils/openai_community';
-import { sendResearchContent } from '../../services/api';
 import { presetPalettes } from '@ant-design/colors';
 import {
   PieChartOutlined,
@@ -24,87 +23,132 @@ import {
   ALL_ERROR_PATTERNS, VALIDATION_THRESHOLDS, ALL_PENDING_PATTERNS,
   OVERLAY
 } from './constants';
+import { getAllResearchTopics } from '../../services/api';
 
 export interface ResearchItem {
   id: string;
-  element: HTMLElement;
   title: string;
   content: string;
-  htmlHash: string;
-  isSent: boolean;
+  status: 'normal' | 'sending' | 'error';
+  isMatched: boolean;
+  error?: string;
+}
+
+export interface Topic {
+  id: number;
+  status: 'pending' | 'researching' | 'completed' | 'error';
+  prompt: string;
+  title: string;
+  description?: string;
+  error?: string;
+  hashs?: string[];
+}
+
+export const cleanText = ( text : string ) => {
+  return text
+    .replace(/\s*https?:\/\/[^\s]+\s*/g, ' ')
+    .replace(/\s*www\.[^\s]+\s*/g, ' ')
+    .replace(/\s*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*/g, ' ')
+    .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+    .replace(/&nbsp;/g, ' ') // Remove HTML entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n/g, '\n\n') // Normalize multiple line breaks to max 2
+    .replace(/^\s+|\s+$/g, '') // Remove leading/trailing whitespace
+    .trim();
 }
 
 // Research related utility functions
-export const generateContentHash = (content: string): string => {
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return hash.toString();
+export const generateContentHash = async (content: string) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  // Convert ArrayBuffer to hex string
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 };
 
-export const loadResearchSentStatus = (): Record<string, boolean> => {
+// Load topics from localStorage or use default
+export const loadTopicsFromStorage = (): Topic[] => {
   try {
-    const saved = localStorage.getItem('aic-research-sent-status');
-    return saved ? JSON.parse(saved) : {};
-  } catch {
-    return {};
-  }
-};
-
-export const saveResearchSentStatus = (hash: string): void => {
-  try {
-    const saved = loadResearchSentStatus();
-    saved[hash] = true;
-    localStorage.setItem('aic-research-sent-status', JSON.stringify(saved));
-  } catch (error) {
-    console.error('Error saving sent status:', error);
-  }
-};
-
-export const scanForResearchResults = (): ResearchItem[] => {
-  const researchDivs = document.querySelectorAll('.deep-research-result');
-  if (researchDivs.length === 0) { return []; }
-  
-  const items: ResearchItem[] = [];
-  const sentStatus = loadResearchSentStatus();
-
-  researchDivs.forEach((div, index) => {
-    if (!div.textContent) { return; }
-
-    let title = `Research ${index + 1}`;
-    try {
-      const titleElement = div.querySelector('h1');
-      if (titleElement && titleElement.textContent && titleElement.textContent.trim()) {
-        title = titleElement.textContent.trim();
+    const saved = localStorage.getItem('aic-auto-research-topics');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Validate the structure
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((topic: any) => ({
+          id: topic.id,
+          status: topic.status,
+          prompt: topic.prompt,
+          title: topic.title,
+          description: topic.description,
+          error: topic.error,
+          hashs: topic.hashs
+        }));
       }
-    } catch (error) {
-      return [];
+    }
+  } catch (error) {
+    console.error('Error loading topics from localStorage:', error);
+  }
+  
+  // Return default topics if no saved data
+  return [];
+};
+
+// Save topics to localStorage whenever topics change
+export const saveTopicsToStorage = (topicsToSave: Topic[]) => {
+  try {
+    localStorage.setItem('aic-auto-research-topics', JSON.stringify(topicsToSave));
+  } catch (error) {
+    console.error('Error saving topics to localStorage:', error);
+  }
+};
+
+export const scanForResearchResults = async (apiKey: string): Promise<ResearchItem[]> => {
+  const researchDivs = document.querySelectorAll('.deep-research-result');
+  if (researchDivs.length === 0) return [];
+
+  const items: ResearchItem[] = [];
+  const topics = loadTopicsFromStorage();
+  const existopic = await getAllResearchTopics(apiKey);
+  const topicTitles = Array.isArray(existopic) ? existopic.map((t: {value: string}) => t.value) : [];
+
+  for (let index = 0; index < researchDivs.length; index++) {
+    const div = researchDivs[index] as HTMLElement;
+    let title = `Research ${index + 1}`;
+
+    const content = div.innerText || div.outerText;
+    if (!content) continue;
+
+    const hash = await generateContentHash(content);
+
+    const matchedTopic = topics.find(t => Array.isArray(t.hashs) && t.hashs.includes(hash));
+    if (matchedTopic) {
+      title = matchedTopic.title;
+    } else {
+      try {
+        const titleElement = div.querySelector('h1');
+        if (titleElement && titleElement.textContent && titleElement.textContent.trim()) {
+          title = titleElement.textContent.trim();
+        }
+      } catch (error) {
+        console.error('Error getting title from div:', error);
+      }
     }
 
-    // Limit title length
-    if (title.length > 100) {
-      title = title.substring(0, 100) + '...';
-    }
-
-    const textContent = div.textContent || '';
-    const contentPreview = textContent.length > 200 
-      ? textContent.substring(0, 200) + '...' 
-      : textContent;
-    
-    const htmlHash = generateContentHash(div.outerHTML || div.innerHTML || '');
-    
     items.push({
       id: `research-${index}`,
-      element: div as HTMLElement,
       title,
-      content: contentPreview,
-      htmlHash,
-      isSent: sentStatus[htmlHash] || false
+      content: cleanText(content),
+      status: 'normal',
+      isMatched: topicTitles.includes(title),
     });
-  });
+  }
 
   return items;
 };
@@ -231,6 +275,7 @@ export const startDeepResearchMode = async () => {
       // Find the deep research button
       const deepResearchButton = Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(
         element => element.textContent === "Nghiên cứu sâu"
+                || element.textContent === "Nghiên cứu chuyên sâu"
                 || element.textContent === "Deep research"
       ) as HTMLElement;
       if (deepResearchButton) {
@@ -261,6 +306,7 @@ export const startDeepResearchMode = async () => {
 export const handleRequest = async ( topic: string, prompt: string, isRunningRef: React.RefObject<boolean> ):Promise<{
   success: boolean;
   error?: string;
+  hash?: string;
 }> => {
   try {
     // Start deep research mode
@@ -312,7 +358,7 @@ export const handleRequest = async ( topic: string, prompt: string, isRunningRef
     }
     
     // Wait for GPT response (without hard timeout) and return the response
-    const responseResult = await handleResponse(topic, currentMessages, isRunningRef);
+    const responseResult = await handleResponse(currentMessages, isRunningRef);
     if (!responseResult.success) {
       return { success: false, error: responseResult.error };
     }
@@ -328,7 +374,7 @@ export const handleRequest = async ( topic: string, prompt: string, isRunningRef
         return { success: false, error: `GPT Error: ${validationResult.reason}` };
 
       case 'research':
-        return { success: true };
+        return { success: true, hash: responseResult.hash };
         
       case 'normal':
         const normalTextPrompt = `Tôi cần bạn tìm hiểu về chủ đề: ${topic}, và trả lời theo định dạng nghiên cứu.`;
@@ -396,10 +442,11 @@ export const validateResponse = (responseContent: string): {
 };
 
 // Handle response from GPT
-const handleResponse = async ( topic: string, msgCount: number, isRunningRef: React.RefObject<boolean> ):Promise<{
+const handleResponse = async ( msgCount: number, isRunningRef: React.RefObject<boolean> ):Promise<{
   success: boolean;
   error?: string;
   validationResult?: any;
+  hash?: string;
 }> => {
   // Wait for streaming to complete with timeout and cancellation support
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -422,30 +469,24 @@ const handleResponse = async ( topic: string, msgCount: number, isRunningRef: Re
   
   // Check for new message
   const newMessages = document.querySelectorAll('[data-message-author-role="assistant"]');
-  console.log('newMessages', newMessages.length, msgCount);
   if (newMessages.length > msgCount) {
     const latestResponse = newMessages[newMessages.length - 1];
     const responseContent = latestResponse.textContent || latestResponse.innerHTML;
-    console.log('responseContent', responseContent);
     if (responseContent) {
       const deepResearch = latestResponse.querySelector('.deep-research-result') as HTMLElement;
       const deepResearchContent = deepResearch?.innerText || deepResearch?.outerText;
-      console.log('deepResearchContent', deepResearchContent);
       if (deepResearchContent) {
         // Send the research result directly
         try {
-          const sendResult = await sendResearchContent(topic, deepResearchContent);
-          if (sendResult.success) {
-            return {
-              success: true,
-              validationResult: {
-                responseType: 'research',
-                reason: 'Response is research content',
-              },
-            };
-          } else {
-            return { success: false, error: sendResult.error };
-          }
+          const hash = await generateContentHash(deepResearchContent);
+          return {
+            success: true,
+            validationResult: {
+              responseType: 'research',
+              reason: 'Response is research content',
+            },
+            hash,
+          };
         } catch (error) {
           return { success: false, error: `Error occurred during sending research content: ${error}` };
         }
@@ -455,7 +496,7 @@ const handleResponse = async ( topic: string, msgCount: number, isRunningRef: Re
       const validationResult = validateResponse(responseContent);
       if (validationResult.responseType === 'pending') {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        return await handleResponse(topic, msgCount + 1, isRunningRef);
+        return await handleResponse(msgCount + 1, isRunningRef);
       }
       return { success: true, validationResult };
     }

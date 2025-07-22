@@ -7,11 +7,13 @@ import { AutoResearch } from './AutoResearch';
 interface ChatGPTModalProps {
   isVisible: boolean;
   onCancel: () => void;
+  apiKey: string;
 }
 
-export const ChatGPTModal: React.FC<ChatGPTModalProps> = ({ isVisible, onCancel }) => {
+export const ChatGPTModal: React.FC<ChatGPTModalProps> = ({ isVisible, onCancel, apiKey }) => {
   const [activeTab, setActiveTab] = useState('auto-research');
 
+  console.log('key', apiKey);
   const tabItems = [
     {
       key: 'auto-research',
@@ -21,17 +23,17 @@ export const ChatGPTModal: React.FC<ChatGPTModalProps> = ({ isVisible, onCancel 
           <span>Auto Research</span>
         </Space>
       ),
-      children: <AutoResearch isVisible={isVisible} onCancel={onCancel} />
+      children: <AutoResearch isVisible={isVisible} onCancel={onCancel} apiKey={apiKey} />
     },
     {
       key: 'research',
       label: (
         <Space>
           <SearchOutlined />
-          <span>Manual Research</span>
+          <span>Send Research</span>
         </Space>
       ),
-      children: <Research isVisible={isVisible} onCancel={onCancel} />
+      children: <Research isVisible={isVisible} onCancel={onCancel} apiKey={apiKey} />
     },
   ];
 

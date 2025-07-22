@@ -172,27 +172,11 @@ export const createVideoSummary = async (videoId: string): Promise<VideoSummary>
 }; 
 
 // Function to send specific research content to API
-export const sendResearchContent = async (topic: string, text: string): Promise<{ success: boolean; error?: string }> => {
+export const sendResearchContent = async (topic: string, text: string, apiKey: string): Promise<{ success: boolean; error?: string }> => {
   try {
     if (topic.trim().length === 0 || text.trim().length === 0) {
       return { success: false, error: 'Topic or text is empty' };
     }
-
-    const cleanedText = text
-      .replace(/\s*https?:\/\/[^\s]+\s*/g, ' ')
-      .replace(/\s*www\.[^\s]+\s*/g, ' ')
-      .replace(/\s*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\s*/g, ' ')
-      .replace(/<[^>]*>/g, ' ') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ') // Remove HTML entities
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n\s*\n/g, '\n\n') // Normalize multiple line breaks to max 2
-      .replace(/^\s+|\s+$/g, '') // Remove leading/trailing whitespace
-      .trim();
     
     // Send message to background script
     return new Promise((resolve) => {
@@ -201,8 +185,9 @@ export const sendResearchContent = async (topic: string, text: string): Promise<
           type: 'SEND_RESEARCH_RESULT',
           payload: {
             topic: topic,
-            text: cleanedText
-          }
+            text: text,
+          },
+          apiKey: apiKey
         },
         (response) => {
           resolve(response);
@@ -213,3 +198,19 @@ export const sendResearchContent = async (topic: string, text: string): Promise<
     return { success: false, error: `Error sending research content: ${error}` };
   }
 }; 
+
+export const getAllResearchTopics = async (apiKey: string) => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'GET_ALL_RESEARCH_TOPICS', apiKey: apiKey },
+      (response) => {
+        if (response.error) {
+          console.error(response.error)
+          resolve([])
+        } else {
+          resolve(response.data || []);
+        }
+      }
+    );
+  });
+};

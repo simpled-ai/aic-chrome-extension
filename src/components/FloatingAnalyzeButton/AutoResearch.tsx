@@ -1,21 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Input, Button, Space, Typography, Tag, Progress, Divider, Modal, Tooltip } from 'antd';
+import { Card, Input, Button, Space, Typography, Tag, Progress, Divider, Modal, Tooltip, AutoComplete } from 'antd';
 import { PlusOutlined, DeleteOutlined, PlayCircleOutlined, StopOutlined, EyeOutlined, EditOutlined } from '@ant-design/icons';
 import {
   handleRequest,
+  Topic,
+  loadTopicsFromStorage,
+  saveTopicsToStorage,
 } from './utils';
 import { OVERLAY } from './constants';
+import { getAllResearchTopics } from '../../services/api';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
-
-interface Topic {
-  id: number;
-  status: 'pending' | 'researching' | 'completed' | 'error';
-  title: string;
-  description?: string;
-  error?: string;
-}
 
 const getStatusColor = (status: Topic['status']) => {
   switch (status) {
@@ -37,37 +33,20 @@ const getStatusText = (status: Topic['status']) => {
   }
 };
 
+const researchPrompt = (topic: {title: string, description?: string}) => `Bạn là một chuyên gia nội dung xây dựng video cho TikTok và Youtube Shorts.
+Hãy nghiên cứu sâu và hệ thống lại dấu hiệu, triệu chứng, các bằng chứng khoa học, số liệu, khảo sát thực tế và insight từ các nguồn đáng tin cậy – với mục tiêu viết một kịch bản video chuyên gia chia sẻ kiến thức y khoa/nghiên cứu/cảnh báo sức khỏe có khả năng viral, có tính nhân văn và chốt CTA về ${topic.title}.
+Yêu cầu:
+${topic.description}.
+Trả lời theo định dạng nghiên cứu.
+Chủ đề này tách biệt với các chủ đề trước nếu có.`;
+
 interface AutoResearchProps {
   isVisible: boolean;
   onCancel: () => void;
+  apiKey: string;
 }
 
-export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel }) => {
-  // Load topics from localStorage or use default
-  const loadTopicsFromStorage = (): Topic[] => {
-    try {
-      const saved = localStorage.getItem('aic-auto-research-topics');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Validate the structure
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((topic: any) => ({
-            id: topic.id,
-            status: topic.status,
-            title: topic.title,
-            description: topic.description,
-            error: topic.error
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error loading topics from localStorage:', error);
-    }
-    
-    // Return default topics if no saved data
-    return [];
-  };
-
+export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel, apiKey }) => {
   const [topics, setTopics] = useState<Topic[]>(loadTopicsFromStorage);
   const [isRunning, setIsRunning] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -77,15 +56,6 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
   const [currentTopicId, setCurrentTopicId] = useState<number | null>(null);
   // Use ref for running control to avoid closure issues
   const isRunningRef = useRef(false);
-
-  // Save topics to localStorage whenever topics change
-  const saveTopicsToStorage = (topicsToSave: Topic[]) => {
-    try {
-      localStorage.setItem('aic-auto-research-topics', JSON.stringify(topicsToSave));
-    } catch (error) {
-      console.error('Error saving topics to localStorage:', error);
-    }
-  };
 
   // Custom setTopics that also saves to localStorage
   const updateTopics = (updater: (prev: Topic[]) => Topic[]) => {
@@ -106,13 +76,14 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
     }
   }, [isVisible]);
 
-  const saveTopic = (title: string, description?: string, id?: number) => {
+  const saveTopic = (prompt: string, title: string, description?: string, id?: number) => {
     if (id !== undefined) {
       // Edit existing topic
       updateTopics(prev => prev.map(topic => 
         topic.id === id 
           ? { 
               ...topic, 
+              prompt: prompt.trim(),
               title: title.trim(), 
               description: description?.trim(),
               status: 'pending', // Reset status when editing
@@ -125,6 +96,7 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
       updateTopics(prev => [...prev, {
         id: topics.length,
         status: 'pending',
+        prompt: prompt.trim(),
         title: title.trim(),
         description: description?.trim(),
       }]);
@@ -165,12 +137,14 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
 
       try {
         // Perform actual research
-        const researchPrompt = `Hãy nghiên cứu về chủ đề: ${topic.title}. Trong đó, tôi muốn: ${topic.description}. Trả lời theo định dạng nghiên cứu. Nếu có thể, hãy tìm kiếm thêm thông tin từ các nguồn khác nhau để đảm bảo độ chính xác và đầy đủ. Chủ đề này tách biệt với các chủ đề trước nếu có.`;
-        const result = await handleRequest(topic.title, researchPrompt, isRunningRef);
+        const result = await handleRequest(topic.title, topic.prompt, isRunningRef);
         
         if (result.success) {
           // Update status to sent since handleResearchResponse already sent it
           updateTopics(prev => prev.map(r => r.id === topic.id ? { ...r, status: 'completed', error: undefined } : r));
+          if (typeof result.hash === 'string') {
+            updateTopics(prev => prev.map(r => r.id === topic.id ? { ...r, hashs: [...(r.hashs || []), result.hash as string] } : r));
+          }
         } else {
           updateTopics(prev => prev.map(r => r.id === topic.id ? { ...r, status: 'error', error: result.error } : r));
         }
@@ -390,14 +364,16 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
       {isModalVisible && (
         <TopicModal
           isVisible={isModalVisible}
+          isViewMode={isViewMode}
           onCancel={() => {
             setIsModalVisible(false);
             setIsViewMode(false);
             setCurrentTopicId(null);
           }}
-          saveTopic={saveTopic}
-          currentTopic={topics.find(t => t.id === currentTopicId) || null}
-          isViewMode={isViewMode}
+          onSave={saveTopic}
+          existingTopics={topics}
+          currentTopicId={currentTopicId}
+          apiKey={apiKey}
         />
       )}
     </>
@@ -405,38 +381,75 @@ export const AutoResearch: React.FC<AutoResearchProps> = ({ isVisible, onCancel 
 };
 
 const TopicModal = ({
-  isVisible,
-  onCancel,
-  saveTopic,
-  currentTopic,
+  isVisible = false,
   isViewMode = false,
+  onCancel,
+  onSave,
+  existingTopics,
+  currentTopicId,
+  apiKey,
 }: {
   isVisible: boolean;
-  onCancel: () => void;
-  saveTopic: (title: string, description?: string, id?: number) => void;
-  currentTopic: Topic | null;
   isViewMode: boolean;
+  onCancel: () => void;
+  onSave: (prompt: string, title: string, description?: string, id?: number) => void;
+  existingTopics: Topic[];
+  currentTopicId: number | null;
+  apiKey: string;
 }) => {
-  const [topic, setTopic] = useState<{title: string, description?: string}>({ 
+  const currentTopic = existingTopics.find(t => t.id === currentTopicId) || null;
+  const [topics, setTopics] = useState<string[]>([]);
+  useEffect(() => {
+    if (isVisible) {
+      getAllResearchTopics(apiKey).then((data: any) => {
+        setTopics(data.map((topic: {value: string}) => topic.value));
+      });
+    }
+  }, [isVisible]);
+
+  const initialDescription = `- Dành cho nhóm người nữ trên 40 tuổi
+- Tất cả thông tin y khoa phải có dẫn nguồn uy tín (như WHO, PubMed, Cleveland Clinic...)`;
+
+  const [topic, setTopic] = useState<{prompt: string, title: string, description?: string}>({ 
+    prompt: currentTopic 
+            ? currentTopic.prompt || researchPrompt({title: currentTopic.title, description: currentTopic.description}) 
+            : '',
     title: currentTopic?.title || '',
-    description: currentTopic?.description
+    description: currentTopic?.description || initialDescription
   });
   const descriptionInputRef = useRef<any>(null);
 
+  const [tempPrompt, setTempPrompt] = useState<string>(
+    currentTopic 
+    ? currentTopic.prompt || researchPrompt({title: currentTopic.title, description: currentTopic.description}) 
+    : '',
+  );
+  const [isEditingPrompt, setIsEditingPrompt] = useState<boolean>(false);
+
   const handleTitleChange = (value: string) => {
-    setTopic(prev => ({ ...prev, title: value }));
+    setTopic(prev => ({ ...prev, title: value, prompt: researchPrompt({title: value, description: prev.description}) }));
+    setTempPrompt(researchPrompt({title: value, description: topic.description}));
   };
 
   const handleDescriptionChange = (value: string) => {
-    setTopic(prev => ({ ...prev, description: value }));
+    setTopic(prev => ({ ...prev, description: value || undefined, prompt: researchPrompt({title: prev.title, description: value || undefined}) }));
+    setTempPrompt(researchPrompt({title: topic.title, description: value || undefined}));
   };
 
-  const handleTitleEnter = (e: React.KeyboardEvent) => {
-    e.preventDefault();
-    if (descriptionInputRef.current) {
-      descriptionInputRef.current.focus();
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (descriptionInputRef.current) {
+        descriptionInputRef.current.focus();
+      }
     }
   };
+
+  // Prepare options for AutoComplete
+  const topicOptions = topics.map(topicValue => ({
+    value: topicValue,
+    label: topicValue
+  }));
 
   return (
     <Modal
@@ -455,8 +468,14 @@ const TopicModal = ({
         <Button
           key="save"
           type="primary"
-          onClick={() => saveTopic(topic.title, topic.description, currentTopic?.id)}
-          disabled={!topic.title.trim() || isViewMode}
+          onClick={() => {
+            if (!currentTopic && existingTopics.find(t => t.title === topic.title)) {
+              window.alert('Topic already exists');
+            } else {
+              onSave(topic.prompt, topic.title, topic.description, currentTopic?.id);
+            }
+          }}
+          disabled={!topic.title.trim() || !topic.prompt.trim() || isViewMode}
         >
           {currentTopic ? 'Update' : 'Save'}
         </Button>,
@@ -469,27 +488,57 @@ const TopicModal = ({
       centered={true}
     >
       <Space direction="vertical" style={{ width: '100%' }}>
-          <Input
-            placeholder="Add topic title..."
-            value={topic.title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            onPressEnter={handleTitleEnter}
-            disabled={isViewMode}
-            autoFocus
-          />
-          <TextArea
-            ref={descriptionInputRef}
-            placeholder="Add topic description..."
-            value={topic.description}
-            onChange={(e) => handleDescriptionChange(e.target.value)}
-            disabled={isViewMode}
-            rows={3}
-            maxLength={500}
-            showCount
-          />
+        <AutoComplete
+          placeholder="Choose from existing topics or add new..."
+          value={topic.title}
+          onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
+          disabled={isViewMode}
+          options={topicOptions}
+          filterOption={(inputValue, option) =>
+            option?.value?.toLowerCase().includes(inputValue.toLowerCase()) || false
+          }
+          style={{ width: '100%' }}
+        />
+        <TextArea
+          ref={descriptionInputRef}
+          placeholder="Add topic description..."
+          value={topic.description}
+          onChange={(e) => handleDescriptionChange(e.target.value)}
+          disabled={isViewMode}
+          rows={3}
+          maxLength={500}
+          showCount
+        />
         <Divider style={{ marginBottom: '0px' }}/>
+        {/* Prompt */}
+        {topic.title.trim() && (<>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <Text type="secondary">
+              This prompt will be used to research the topic. 
+            </Text>
+            <Button
+              size="small"
+              onClick={() => {
+                setTopic(prev => ({ ...prev, prompt: tempPrompt }));
+                setIsEditingPrompt(!isEditingPrompt);
+              }}
+              disabled={!tempPrompt.trim() || isViewMode}
+            >
+              {isEditingPrompt ? 'Save' : 'Edit'}
+            </Button>
+          </div>
+          <TextArea
+            placeholder="Add prompt..."
+            value={tempPrompt}
+            onChange={(e) => setTempPrompt(e.target.value)}
+            disabled={isViewMode || !isEditingPrompt}
+            rows={5}
+          />
+          <Divider style={{ margin: '0px' }}/>
+        </>)}
         <Text type="secondary" style={{ fontSize: '12px' }}>
-          Add topics you want to research automatically. Each topic will be processed by AI and results will be sent automatically.
+          Add topics you want to research automatically. Each topic will be processed by ChatGPT.
         </Text>
       </Space>
     </Modal>

@@ -40,7 +40,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'SEND_RESEARCH_RESULT') {
-    sendResearchResult(request.payload)
+    sendResearchResult(request.payload, request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
+
+  if (request.type === 'GET_ALL_RESEARCH_TOPICS') {
+    getAllResearchTopics(request.apiKey)
       .then(sendResponse)
       .catch((error: Error) => sendResponse({ success: false, error: error.message }));
     return true; // Will respond asynchronously
@@ -118,22 +125,47 @@ const createVideoSummary = async (payload: {
   return response.json();
 };
 
-const sendResearchResult = async ( payload: { topic: string, text: string }) => {
+const sendResearchResult = async ( payload: { topic: string, text: string }, apiKey: string) => {
   try {
     // API endpoint - replace with your actual API URL
-    const API_ENDPOINT = 'http://127.0.0.1:3000/api/import';
+    const API_ENDPOINT = 'https://opilot-chat.aic.academy/vector/import';
     
     // Send to API
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': apiKey
       },
       body: JSON.stringify(payload)
     });
 
     if (response.ok) {
       return { success: true };
+    } else {
+      return { success: false, error: `API request failed` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error sending research result: ${error}` };
+  }
+};
+
+const getAllResearchTopics = async (apiKey: string) => {
+  try {
+    // API endpoint - replace with your actual API URL
+    const API_ENDPOINT = 'https://opilot-chat.aic.academy/vector/get-all-topics';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json().then(data => data['topics']);
+      return { success: true, data};
     } else {
       return { success: false, error: `API request failed` };
     }

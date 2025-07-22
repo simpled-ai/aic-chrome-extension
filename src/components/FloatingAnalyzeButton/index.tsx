@@ -8,7 +8,7 @@ import { getTaskStatus } from '../../services/api';
 import { AnalyzeButton } from './AnalyzeButton';
 import { ReportModal } from './ReportModal';
 import { YouTubeSummarizer } from '../YouTubeSummarizer';
-import { ChatGPTModal } from './ChatGPTModal';
+import { KeyModal } from './KeyModal';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -190,7 +190,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
       </FloatButton.Group>
 
       {isChatGptPage 
-        ?<ChatGPTModal
+        ?<KeyModal
           isVisible={isModalVisible}
           onCancel={() => setIsModalVisible(false)}
         /> 
