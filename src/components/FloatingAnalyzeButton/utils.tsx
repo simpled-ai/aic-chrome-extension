@@ -31,6 +31,7 @@ export interface ResearchItem {
   content: string;
   status: 'normal' | 'sending' | 'error';
   isMatched: boolean;
+  documentId?: string;
   error?: string;
 }
 
@@ -116,7 +117,8 @@ export const scanForResearchResults = async (apiKey: string): Promise<ResearchIt
   const items: ResearchItem[] = [];
   const topics = loadTopicsFromStorage();
   const existopic = await getAllResearchTopics(apiKey);
-  const topicTitles = Array.isArray(existopic) ? existopic.map((t: {value: string}) => t.value) : [];
+  const topicTitles = Array.isArray(existopic) ? existopic.map((documents: {metadata: {topic: string}}) => documents.metadata.topic) : [];
+  const topicDocumentIds = Array.isArray(existopic) ? existopic.map((documents: {metadata: {document_id: string}}) => documents.metadata.document_id) : [];
 
   for (let index = 0; index < researchDivs.length; index++) {
     const div = researchDivs[index] as HTMLElement;
@@ -147,6 +149,7 @@ export const scanForResearchResults = async (apiKey: string): Promise<ResearchIt
       content: cleanText(content),
       status: 'normal',
       isMatched: topicTitles.includes(title),
+      documentId: topicTitles.includes(title) ? topicDocumentIds[topicTitles.indexOf(title)] : undefined,
     });
   }
 

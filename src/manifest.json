@@ -19,7 +19,8 @@
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "http://localhost:3000/*",
-    "http://intranet.aic.academy/web-crawler/*"
+    "http://intranet.aic.academy/web-crawler/*",
+    "http://13.229.113.45:8080/*"
   ],
   "background": {
     "service_worker": "background.js",

@@ -125,10 +125,22 @@ const createVideoSummary = async (payload: {
   return response.json();
 };
 
-const sendResearchResult = async ( payload: { topic: string, text: string }, apiKey: string) => {
+const sendResearchResult = async (
+  payload: {
+    metadata: {
+      topic: string;
+      author: string;
+      source: string;
+      documentId?: string;
+    },
+    collection_name: string;
+    content: string;
+  },
+  apiKey: string
+) => {
   try {
     // API endpoint - replace with your actual API URL
-    const API_ENDPOINT = 'https://opilot-chat.aic.academy/vector/import';
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/import';
     
     // Send to API
     const response = await fetch(API_ENDPOINT, {
@@ -153,19 +165,27 @@ const sendResearchResult = async ( payload: { topic: string, text: string }, api
 const getAllResearchTopics = async (apiKey: string) => {
   try {
     // API endpoint - replace with your actual API URL
-    const API_ENDPOINT = 'https://opilot-chat.aic.academy/vector/get-all-topics';
-    
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/documents/list';
+    const payload = {
+      "collection_name": 'aff_materials',
+      "group_by": 'metadata.topic',
+      "limit": 100,
+      "offset": 0
+    };
+
     // Send to API
     const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey
-      }
+      },
+      body: JSON.stringify(payload)
     });
 
     if (response.ok) {
-      const data = await response.json().then(data => data['topics']);
-      return { success: true, data};
+      const data = await response.json().then(data => data['documents']);
+      return { success: true, data };
     } else {
       return { success: false, error: `API request failed` };
     }

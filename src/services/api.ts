@@ -172,7 +172,7 @@ export const createVideoSummary = async (videoId: string): Promise<VideoSummary>
 }; 
 
 // Function to send specific research content to API
-export const sendResearchContent = async (topic: string, text: string, apiKey: string): Promise<{ success: boolean; error?: string }> => {
+export const sendResearchContent = async (topic: string, text: string, apiKey: string, id?: string): Promise<{ success: boolean; error?: string }> => {
   try {
     if (topic.trim().length === 0 || text.trim().length === 0) {
       return { success: false, error: 'Topic or text is empty' };
@@ -184,8 +184,14 @@ export const sendResearchContent = async (topic: string, text: string, apiKey: s
         {
           type: 'SEND_RESEARCH_RESULT',
           payload: {
-            topic: topic,
-            text: text,
+            metadata: {
+              topic: topic,
+              author: 'system',
+              source: 'deep_research',
+              document_id: id,
+            },
+            collection_name: 'aff_materials',
+            content: text
           },
           apiKey: apiKey
         },

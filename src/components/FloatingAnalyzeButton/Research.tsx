@@ -24,10 +24,13 @@ export const Research: React.FC<ResearchProps> = ({ isVisible, onCancel, apiKey 
   const [detailTitle, setDetailTitle] = useState('');
 
   const [topicTitles, setTopicTitles] = useState<string[]>([]);
+  const [topicDocumentIds, setTopicDocumentIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (isVisible) {
       getAllResearchTopics(apiKey).then((data: any) => {
-        setTopicTitles(data.map((topic: {value: string}) => topic.value));
+        setTopicTitles(data.map((documents: {metadata: {topic: string}}) => documents.metadata.topic));
+        setTopicDocumentIds(data.map((documents: {metadata: {document_id: string}}) => documents.metadata.document_id));
       });
     }
   }, [isVisible]);
@@ -51,7 +54,7 @@ export const Research: React.FC<ResearchProps> = ({ isVisible, onCancel, apiKey 
     ));
 
     try {
-      const result = await sendResearchContent(item.title, item.content, apiKey);
+      const result = await sendResearchContent(item.title, item.content, apiKey, item.documentId);
       if (result.success) {
         setResearchItems(prev => prev.map(research => 
           research.id === item.id ? { ...research, status: 'normal', isMatched: true } : research
@@ -94,7 +97,7 @@ export const Research: React.FC<ResearchProps> = ({ isVisible, onCancel, apiKey 
       ));
 
       try {
-        const result = await sendResearchContent(item.title, item.content, apiKey);
+        const result = await sendResearchContent(item.title, item.content, apiKey, item.documentId);
         if (result.success) {
           setResearchItems(prev => prev.map(research => 
             research.id === item.id ? { ...research, status: 'normal', isMatched: true } : research
@@ -373,7 +376,8 @@ export const Research: React.FC<ResearchProps> = ({ isVisible, onCancel, apiKey 
                   ? {
                     ...item, 
                     title: detailTitle,
-                    isMatched: topicTitles.includes(detailTitle)
+                    isMatched: topicTitles.includes(detailTitle),
+                    documentId: topicTitles.includes(detailTitle) ? topicDocumentIds[topicTitles.indexOf(detailTitle)] : undefined,
                   }
                   : item
                 ));

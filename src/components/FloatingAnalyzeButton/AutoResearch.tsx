@@ -402,7 +402,7 @@ const TopicModal = ({
   useEffect(() => {
     if (isVisible) {
       getAllResearchTopics(apiKey).then((data: any) => {
-        setTopics(data.map((topic: {value: string}) => topic.value));
+        setTopics(data.map((documents: {metadata: {topic: string}}) => documents.metadata.topic));
       });
     }
   }, [isVisible]);
