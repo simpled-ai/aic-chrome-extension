@@ -52,6 +52,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error: Error) => sendResponse({ success: false, error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'SAVE_CHATGPT_CONVERSATION') {
+    saveChatGPTConversation(request.payload, request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -191,6 +198,46 @@ const getAllResearchTopics = async (apiKey: string) => {
     }
   } catch (error) {
     return { success: false, error: `Error sending research result: ${error}` };
+  }
+};
+
+const saveChatGPTConversation = async (
+  payload: {
+    content: string;
+    collection_name: string;
+    metadata: {
+      topic: string;
+      author: string;
+      source: string;
+      category: string;
+      created_at: string;
+      conversation_type: string;
+    };
+  },
+  apiKey: string
+) => {
+  try {
+    // API endpoint for importing documents
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/import';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      return { success: false, error: `API request failed: ${errorText}` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error saving conversation: ${error}` };
   }
 };
 
