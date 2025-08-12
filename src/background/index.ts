@@ -59,6 +59,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error: Error) => sendResponse({ success: false, error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'SEARCH_CONVERSATIONS') {
+    searchConversations(request.payload, request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -238,6 +245,51 @@ const saveChatGPTConversation = async (
     }
   } catch (error) {
     return { success: false, error: `Error saving conversation: ${error}` };
+  }
+};
+
+const searchConversations = async (
+  payload: {
+    query: string;
+    collection_name: string;
+    limit: number;
+    threshold: number;
+    search_type: string;
+    filter?: string;
+    hybrid_config?: {
+      dense_weight: number;
+      sparse_weight: number;
+      fusion_method: string;
+      rrf_k: number;
+    };
+  },
+  apiKey: string
+) => {
+  try {    
+    // API endpoint for searching documents
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/search';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, data };
+    } else {
+      const errorText = await response.text();
+      console.error('Background: API error response:', errorText);
+      return { success: false, error: `API request failed (${response.status}): ${errorText}` };
+    }
+  } catch (error) {
+    console.error('Background: Search error:', error);
+    return { success: false, error: `Error searching conversations: ${error}` };
   }
 };
 

@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { FloatButton, Modal, Input, Button, Space, Typography, message } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { FloatButton, Modal, Input, Button, Space, Typography, message, Tabs } from 'antd';
+import { SaveOutlined, SearchOutlined } from '@ant-design/icons';
+import { ConversationSearch } from './ConversationSearch';
 
 const { Text } = Typography;
 
 export const ChatGPTSaveButton: React.FC = () => {
-  const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
+  const [isMainModalVisible, setIsMainModalVisible] = useState(false);
   const [isKeyModalVisible, setIsKeyModalVisible] = useState(false);
   const [label, setLabel] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState('');
+  const [activeTab, setActiveTab] = useState('save');
 
   const extractLatestConversation = (): string => {
     try {
@@ -75,7 +77,7 @@ export const ChatGPTSaveButton: React.FC = () => {
     if (valid) {
       setApiKey(inputKey.trim());
       setIsKeyModalVisible(false);
-      setIsSaveModalVisible(true);
+      setIsMainModalVisible(true);
     } else {
       message.error('Invalid API key!');
     }
@@ -123,7 +125,6 @@ export const ChatGPTSaveButton: React.FC = () => {
 
       if (response.success) {
         message.success('Conversation saved successfully!');
-        setIsSaveModalVisible(false);
         setLabel('');
       } else {
         message.error(response.error || 'Failed to save conversation');
@@ -136,9 +137,10 @@ export const ChatGPTSaveButton: React.FC = () => {
     }
   };
 
-  const handleSaveModalCancel = () => {
-    setIsSaveModalVisible(false);
+  const handleMainModalCancel = () => {
+    setIsMainModalVisible(false);
     setLabel('');
+    setActiveTab('save');
   };
 
   const handleKeyModalCancel = () => {
@@ -148,18 +150,94 @@ export const ChatGPTSaveButton: React.FC = () => {
 
   const handleButtonClick = () => {
     if (apiKey) {
-      setIsSaveModalVisible(true);
+      setIsMainModalVisible(true);
     } else {
       setIsKeyModalVisible(true);
     }
   };
+
+  const tabItems = [
+    {
+      key: 'save',
+      label: (
+        <Space>
+          <SaveOutlined />
+          <span>Save Conversation</span>
+        </Space>
+      ),
+      children: (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <Text strong>Conversation Label</Text>
+            <Input
+              placeholder="Enter a label for this conversation (e.g., 'Python Code Review', 'Marketing Strategy Discussion')"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              onPressEnter={handleSave}
+              autoFocus={activeTab === 'save'}
+            />
+          </div>
+          
+          <div>
+            <Text strong>Preview</Text>
+            <div style={{ 
+              maxHeight: '12.5rem', 
+              overflow: 'auto', 
+              border: '1px solid #d9d9d9', 
+              borderRadius: '0.375rem', 
+              padding: '0.5rem',
+              backgroundColor: '#fafafa',
+              fontSize: '0.75rem'
+            }}>
+              {(() => {
+                const conversation = extractLatestConversation();
+                return conversation || 'No conversation found';
+              })()}
+            </div>
+          </div>
+
+          <Text type="secondary" style={{ fontSize: '0.75rem' }}>
+            This will save the latest conversation to the ai_tools_materials collection. 
+            The conversation will be automatically chunked and indexed for future reference.
+          </Text>
+          
+          <div style={{ textAlign: 'right', marginTop: '1rem' }}>
+            <Button
+              type="primary"
+              onClick={handleSave}
+              loading={isSaving}
+              disabled={!label.trim()}
+              icon={<SaveOutlined />}
+            >
+              Save Conversation
+            </Button>
+          </div>
+        </Space>
+      )
+    },
+    {
+      key: 'search',
+      label: (
+        <Space>
+          <SearchOutlined />
+          <span>Search Conversations</span>
+        </Space>
+      ),
+      children: (
+        <ConversationSearch 
+          apiKey={apiKey!} 
+          onClose={() => setIsMainModalVisible(false)}
+        />
+      )
+    }
+  ];
 
   return (
     <>
       <FloatButton
         icon={<SaveOutlined />}
         onClick={handleButtonClick}
-        tooltip="Save conversation to collection"
+        tooltip="Manage conversations"
       />
 
       {/* API Key Modal */}
@@ -202,69 +280,23 @@ export const ChatGPTSaveButton: React.FC = () => {
         </Text>
       </Modal>
 
-      {/* Save Conversation Modal */}
+      {/* Main Modal with Tabs */}
       <Modal
-        title={
-          <Space>
-            <SaveOutlined />
-            <span>Save ChatGPT Conversation</span>
-          </Space>
-        }
-        open={isSaveModalVisible}
-        onCancel={handleSaveModalCancel}
-        footer={[
-          <Button key="cancel" onClick={handleSaveModalCancel}>
-            Cancel
-          </Button>,
-          <Button
-            key="save"
-            type="primary"
-            onClick={handleSave}
-            loading={isSaving}
-            disabled={!label.trim()}
-          >
-            Save Conversation
-          </Button>,
-        ]}
+        title="ChatGPT Conversation Manager"
+        open={isMainModalVisible}
+        onCancel={handleMainModalCancel}
+        footer={null}
+width="75rem"
         destroyOnClose
         centered
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div>
-            <Text strong>Conversation Label</Text>
-            <Input
-              placeholder="Enter a label for this conversation (e.g., 'Python Code Review', 'Marketing Strategy Discussion')"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onPressEnter={handleSave}
-              autoFocus
-            />
-          </div>
-          
-          <div>
-            <Text strong>Preview</Text>
-            <div style={{ 
-              maxHeight: '200px', 
-              overflow: 'auto', 
-              border: '1px solid #d9d9d9', 
-              borderRadius: '6px', 
-              padding: '8px',
-              backgroundColor: '#fafafa',
-              fontSize: '12px'
-            }}>
-              {(() => {
-                const conversation = extractLatestConversation();
-                return conversation || 'No conversation found';
-              })()}
-            </div>
-          </div>
-
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            This will save the latest conversation to the ai_tools_materials collection. 
-            The conversation will be automatically chunked and indexed for future reference.
-          </Text>
-        </Space>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          size="large"
+        />
       </Modal>
     </>
   );
-};
+ };
