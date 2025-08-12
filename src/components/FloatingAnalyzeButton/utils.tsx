@@ -255,8 +255,8 @@ export const startDeepResearchMode = async () => {
     }
     
     // Click menu button to open dropdown
-    const menuButton = document.querySelector('button[id="system-hint-button"]') as HTMLButtonElement;
-    if (menuButton && (menuButton.textContent === "Công cụ" || menuButton.textContent === "Tools")) {
+    const menuButton = document.querySelector('button[data-testid="composer-plus-btn"]') as HTMLButtonElement;
+    if (menuButton) {
       try {
         // Focus and Enter key
         menuButton.focus();
@@ -455,9 +455,13 @@ const handleResponse = async ( msgCount: number, isRunningRef: React.RefObject<b
   await new Promise(resolve => setTimeout(resolve, 500));
   const timeout = 3600000;
   const startTime = Date.now();
+  let flag = false;
   while (Date.now() - startTime < timeout && isRunningRef.current) {
     if (document.querySelector('[data-testid="stop-button"]')) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } else if (!document.querySelector('[data-testid="stop-button"]') && !flag) {
+      flag = true;
+      await new Promise(resolve => setTimeout(resolve, 5000));
     } else {
       break;
     }
@@ -498,7 +502,7 @@ const handleResponse = async ( msgCount: number, isRunningRef: React.RefObject<b
       // Validate the response
       const validationResult = validateResponse(responseContent);
       if (validationResult.responseType === 'pending') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 5000));
         return await handleResponse(msgCount + 1, isRunningRef);
       }
       return { success: true, validationResult };
