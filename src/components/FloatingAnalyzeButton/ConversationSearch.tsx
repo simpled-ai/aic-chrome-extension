@@ -18,7 +18,8 @@ import {
   EyeOutlined,
   CalendarOutlined,
   UserOutlined,
-  TagOutlined
+  TagOutlined,
+  CopyOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -139,6 +140,41 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
     setIsViewModalVisible(true);
   };
 
+  const handleCopyToChat = async (result: SearchResult) => {
+    try {
+      const textToCopy = result.text || 'No content available';
+      
+      // Copy to clipboard first
+      await navigator.clipboard.writeText(textToCopy);
+      
+      // Find ChatGPT input field using the same method as auto research
+      const chatInput = document.querySelector('#prompt-textarea') as HTMLTextAreaElement | HTMLElement;
+      if (!chatInput) {
+        return;
+      }
+
+      // Input the text using the same method as auto research
+      try {
+        if (chatInput.tagName === 'TEXTAREA') {
+          (chatInput as HTMLTextAreaElement).value = textToCopy;
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          chatInput.textContent = textToCopy;
+          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Focus on the input
+        chatInput.focus();
+      } catch (inputError) {
+        console.error('Failed to input text into ChatGPT field:', inputError);
+      }
+    } catch (error) {
+      console.error('Error copying to chat:', error);
+    }
+  };
+
 
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format('YYYY-MM-DD HH:mm');
@@ -205,6 +241,14 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
                      onClick={() => handleViewResult(result)}
                    >
                      View
+                   </Button>,
+                   <Button
+                     key="copy"
+                     type="link"
+                     icon={<CopyOutlined />}
+                     onClick={() => handleCopyToChat(result)}
+                   >
+                     Copy to Chat
                    </Button>
                  ]}
                                    style={{ 
