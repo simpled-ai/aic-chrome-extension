@@ -20,7 +20,8 @@ import {
   CalendarOutlined,
   UserOutlined,
   TagOutlined,
-  CopyOutlined
+  CopyOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -62,7 +63,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
   const defaultSearchConfig = {
     searchType: 'hybrid',
     limit: 10,
-    threshold: 0.5,
+    threshold: 0,
     denseWeight: 0,
     sparseWeight: 0,
     fusionMethod: 'rrf',
@@ -196,38 +197,92 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
     setIsViewModalVisible(true);
   };
 
-  const handleCopyToChat = async (result: SearchResult) => {
+  // Shared function to copy text to clipboard and append to ChatGPT input
+  const copyTextToChatGPT = async (text: string) => {
     try {
-      const textToCopy = result.text || 'No content available';
-      
       // Copy to clipboard first
-      await navigator.clipboard.writeText(textToCopy);
+      await navigator.clipboard.writeText(text);
       
-      // Find ChatGPT input field using the same method as auto research
+      // Find ChatGPT input field
       const chatInput = document.querySelector('#prompt-textarea') as HTMLTextAreaElement | HTMLElement;
       if (!chatInput) {
         return;
       }
 
-      // Input the text using the same method as auto research
-      try {
-        if (chatInput.tagName === 'TEXTAREA') {
-          (chatInput as HTMLTextAreaElement).value = textToCopy;
-          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
-        } else {
-          chatInput.textContent = textToCopy;
-          chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-          chatInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        
-        // Focus on the input
-        chatInput.focus();
-      } catch (inputError) {
-        console.error('Failed to input text into ChatGPT field:', inputError);
+      // Get existing text and append new text
+      let existingText = '';
+      if (chatInput.tagName === 'TEXTAREA') {
+        existingText = (chatInput as HTMLTextAreaElement).value;
+        const newText = existingText + (existingText ? '\n\n' : '') + text;
+        (chatInput as HTMLTextAreaElement).value = newText;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        existingText = chatInput.textContent || '';
+        const newText = existingText + (existingText ? '\n\n' : '') + text;
+        chatInput.textContent = newText;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
+      
+      // Focus on the input
+      chatInput.focus();
+    } catch (error) {
+      console.error('Failed to copy text to ChatGPT:', error);
+      throw error;
+    }
+  };
+
+  const handleCopyToChat = async (result: SearchResult) => {
+    try {
+      const textToCopy = result.text || 'No content available';
+      await copyTextToChatGPT(textToCopy);
+      alert('Chunk text copied to chat and clipboard');
     } catch (error) {
       console.error('Error copying to chat:', error);
+      alert('Failed to copy to chat');
+    }
+  };
+
+  const handleCopyFullDocument = async (result: SearchResult) => {
+    try {
+      const documentId = result.metadata?.document_id;
+      if (!documentId) {
+        message.error('Document ID not available');
+        return;
+      }
+
+      // Show loading message
+      const hideLoading = message.loading('Fetching full document...', 0);
+      
+      // Fetch full document
+      const response = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            type: 'GET_FULL_DOCUMENT',
+            collection_name: 'ai_tools_materials',
+            document_id: documentId,
+            apiKey
+          },
+          (response) => {
+            resolve(response);
+          }
+        );
+      });
+
+      hideLoading();
+
+      if (response.success && response.data) {
+        const fullText = response.data.full_text || response.data.content || 'No full text available';
+        await copyTextToChatGPT(fullText);
+        alert('Full document copied to chat and clipboard');
+      } else {
+        console.error('Failed to fetch full document:', response.error);
+        alert(response.error || 'Failed to fetch full document');
+      }
+    } catch (error) {
+      console.error('Error copying full document:', error);
+      alert('Error copying full document');
     }
   };
 
@@ -259,7 +314,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
              <Typography.Text strong>Topic:</Typography.Text>
              <Select
                placeholder="All topics"
-               style={{ minWidth: '200px' }}
+               style={{ minWidth: '200px', cursor: 'pointer' }}
                value={selectedTopic}
                onChange={setSelectedTopic}
                allowClear
@@ -269,6 +324,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                }
                options={topicFacets.map(topic => ({ value: topic, label: topic }))}
+               dropdownStyle={{ cursor: 'pointer' }}
              />
              {topicFacets.length > 0 && (
                <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>
@@ -331,6 +387,15 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
                      onClick={() => handleCopyToChat(result)}
                    >
                      Copy to Chat
+                   </Button>,
+                   <Button
+                     key="copyFull"
+                     type="link"
+                     icon={<FileTextOutlined />}
+                     onClick={() => handleCopyFullDocument(result)}
+                     disabled={!result.metadata?.document_id}
+                   >
+                     Copy document full text
                    </Button>
                  ]}
                                    style={{ 
