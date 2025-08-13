@@ -66,6 +66,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error: Error) => sendResponse({ success: false, error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'GET_METADATA_FACETS') {
+    getMetadataFacets(request.payload, request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -290,6 +297,42 @@ const searchConversations = async (
   } catch (error) {
     console.error('Background: Search error:', error);
     return { success: false, error: `Error searching conversations: ${error}` };
+  }
+};
+
+const getMetadataFacets = async (
+  payload: {
+    collection_name: string;
+    metadata_key: string;
+    filter?: string;
+  },
+  apiKey: string
+) => {
+  try {    
+    // API endpoint for getting metadata facets
+    const API_ENDPOINT = 'http://localhost:8080/api/documents/metadata-facets';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, data };
+    } else {
+      const errorText = await response.text();
+      console.error('Background: API error response:', errorText);
+      return { success: false, error: `API request failed (${response.status}): ${errorText}` };
+    }
+  } catch (error) {
+    console.error('Background: Metadata facets error:', error);
+    return { success: false, error: `Error getting metadata facets: ${error}` };
   }
 };
 

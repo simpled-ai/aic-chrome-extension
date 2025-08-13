@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Input,
@@ -11,7 +11,8 @@ import {
   Empty,
   Divider,
   message,
-  Modal
+  Modal,
+  Select
 } from 'antd';
 import {
   SearchOutlined,
@@ -53,6 +54,9 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
   const [isSearching, setIsSearching] = useState(false);
   const [isViewModalVisible, setIsViewModalVisible] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [topicFacets, setTopicFacets] = useState<string[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [isLoadingFacets, setIsLoadingFacets] = useState(false);
   
   // Default search configuration
   const defaultSearchConfig = {
@@ -64,6 +68,48 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
     fusionMethod: 'rrf',
     rrfK: 1
   };
+
+  // Fetch topic facets on component mount
+  useEffect(() => {
+    const fetchTopicFacets = async () => {
+      setIsLoadingFacets(true);
+      try {
+        const response = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+          chrome.runtime.sendMessage(
+            {
+              type: 'GET_METADATA_FACETS',
+              payload: {
+                collection_name: 'ai_tools_materials',
+                metadata_key: 'topic'
+              },
+              apiKey
+            },
+            (response) => {
+              resolve(response);
+            }
+          );
+        });
+        
+        if (response.success && response.data) {
+          // The API returns facet_values array
+          const topics = response.data.facet_values || [];
+          setTopicFacets(topics);
+        } else {
+          console.error('Failed to fetch topic facets:', response.error);
+          message.error('Failed to load topics');
+        }
+      } catch (error) {
+        console.error('Error fetching topic facets:', error);
+        message.error('Failed to load topics');
+      } finally {
+        setIsLoadingFacets(false);
+      }
+    };
+
+    if (apiKey) {
+      fetchTopicFacets();
+    }
+  }, [apiKey]);
 
 
 
@@ -81,6 +127,16 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
         limit: defaultSearchConfig.limit,
         threshold: defaultSearchConfig.threshold,
         search_type: defaultSearchConfig.searchType,
+        ...(selectedTopic && {
+          filter: {
+            "must": [{
+              "key": "metadata.topic",
+              "match": {
+                "value": selectedTopic
+              }
+            }]
+          }
+        }),
         hybrid_config: {
           dense_weight: defaultSearchConfig.denseWeight,
           sparse_weight: defaultSearchConfig.sparseWeight,
@@ -197,25 +253,51 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
 
        {/* Search Bar */}
        <Card style={{ marginTop: '1rem' }}>
-        <Space.Compact style={{ width: '100%' }}>
-          <Search
-            placeholder="Enter your search query (e.g., 'Python code', 'Marketing strategy')"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onSearch={handleSearch}
-            enterButton={
-              <Button 
-                type="primary" 
-                icon={<SearchOutlined />}
-                loading={isSearching}
-              >
-                Search
-              </Button>
-            }
-            size="large"
-          />
-        </Space.Compact>
-      </Card>
+         <Space direction="vertical" style={{ width: '100%', gap: '1rem' }}>
+           {/* Topic Filter */}
+           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+             <Typography.Text strong>Topic:</Typography.Text>
+             <Select
+               placeholder="All topics"
+               style={{ minWidth: '200px' }}
+               value={selectedTopic}
+               onChange={setSelectedTopic}
+               allowClear
+               loading={isLoadingFacets}
+               showSearch
+               filterOption={(input, option) =>
+                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+               }
+               options={topicFacets.map(topic => ({ value: topic, label: topic }))}
+             />
+             {topicFacets.length > 0 && (
+               <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>
+                 ({topicFacets.length} topics available)
+               </Typography.Text>
+             )}
+           </div>
+           
+           {/* Search Input */}
+           <Space.Compact style={{ width: '100%' }}>
+             <Search
+               placeholder="Enter your search query (e.g., 'Python code', 'Marketing strategy')"
+               value={query}
+               onChange={(e) => setQuery(e.target.value)}
+               onSearch={handleSearch}
+               enterButton={
+                 <Button 
+                   type="primary" 
+                   icon={<SearchOutlined />}
+                   loading={isSearching}
+                 >
+                   Search
+                 </Button>
+               }
+               size="large"
+             />
+           </Space.Compact>
+         </Space>
+       </Card>
 
 
              {/* Search Results */}
