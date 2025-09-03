@@ -33,6 +33,7 @@ interface SearchResult {
   text: string;
   metadata: {
     topic?: string;
+    pain?: string;
     author?: string;
     source?: string;
     category?: string;
@@ -55,8 +56,8 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
   const [isSearching, setIsSearching] = useState(false);
   const [isViewModalVisible, setIsViewModalVisible] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
-  const [topicFacets, setTopicFacets] = useState<string[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [painFacets, setPainFacets] = useState<string[]>([]);
+  const [selectedPain, setSelectedPain] = useState<string | null>(null);
   const [isLoadingFacets, setIsLoadingFacets] = useState(false);
   
   // Default search configuration
@@ -70,9 +71,9 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
     rrfK: 1
   };
 
-  // Fetch topic facets on component mount
+  // Fetch pain facets on component mount
   useEffect(() => {
-    const fetchTopicFacets = async () => {
+    const fetchPainFacets = async () => {
       setIsLoadingFacets(true);
       try {
         const response = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
@@ -81,7 +82,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
               type: 'GET_METADATA_FACETS',
               payload: {
                 collection_name: 'ai_tools_materials',
-                metadata_key: 'topic'
+                metadata_key: 'pain'
               },
               apiKey
             },
@@ -93,22 +94,22 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
         
         if (response.success && response.data) {
           // The API returns facet_values array
-          const topics = response.data.facet_values || [];
-          setTopicFacets(topics);
+          const pains = response.data.facet_values || [];
+          setPainFacets(pains);
         } else {
-          console.error('Failed to fetch topic facets:', response.error);
-          message.error('Failed to load topics');
+          console.error('Failed to fetch guidebook topic facets:', response.error);
+          message.error('Failed to load guidebook topic points');
         }
       } catch (error) {
-        console.error('Error fetching topic facets:', error);
-        message.error('Failed to load topics');
+        console.error('Error fetching guidebook topic facets:', error);
+        message.error('Failed to load guidebook topic points');
       } finally {
         setIsLoadingFacets(false);
       }
     };
 
     if (apiKey) {
-      fetchTopicFacets();
+      fetchPainFacets();
     }
   }, [apiKey]);
 
@@ -128,12 +129,12 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
         limit: defaultSearchConfig.limit,
         threshold: defaultSearchConfig.threshold,
         search_type: defaultSearchConfig.searchType,
-        ...(selectedTopic && {
+        ...(selectedPain && {
           filter: {
             "must": [{
-              "key": "metadata.topic",
+              "key": "metadata.pain",
               "match": {
-                "value": selectedTopic
+                "value": selectedPain
               }
             }]
           }
@@ -309,26 +310,26 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
        {/* Search Bar */}
        <Card style={{ marginTop: '1rem' }}>
          <Space direction="vertical" style={{ width: '100%', gap: '1rem' }}>
-           {/* Topic Filter */}
+           {/* Pain Filter */}
            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-             <Typography.Text strong>Topic:</Typography.Text>
+             <Typography.Text strong>Guidebook Topic:</Typography.Text>
              <Select
-               placeholder="All topics"
+               placeholder="All guidebook topic"
                style={{ minWidth: '200px', cursor: 'pointer' }}
-               value={selectedTopic}
-               onChange={setSelectedTopic}
+               value={selectedPain}
+               onChange={setSelectedPain}
                allowClear
                loading={isLoadingFacets}
                showSearch
                filterOption={(input, option) =>
                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                }
-               options={topicFacets.map(topic => ({ value: topic, label: topic }))}
+               options={painFacets.map(pain => ({ value: pain, label: pain }))}
                dropdownStyle={{ cursor: 'pointer' }}
              />
-             {topicFacets.length > 0 && (
+             {painFacets.length > 0 && (
                <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>
-                 ({topicFacets.length} topics available)
+                 ({painFacets.length} guidebook topics available)
                </Typography.Text>
              )}
            </div>
@@ -422,7 +423,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
                      flex: '1 1 auto',
                      minWidth: '12.5rem'
                    }}>
-                     {result.metadata?.topic || 'Untitled'}
+                     {result.metadata?.pain || 'No guidebook topic'}
                    </Text>
                    <Tag color={getScoreColor(result.score)} style={{ 
                      whiteSpace: 'nowrap',
@@ -495,7 +496,7 @@ export const ConversationSearch: React.FC<ConversationSearchProps> = ({ apiKey }
 
       {/* View Result Modal */}
       <Modal
-        title={`Conversation: ${selectedResult?.metadata?.topic || 'Untitled'}`}
+        title={`Conversation: ${selectedResult?.metadata?.pain || 'No guidebook topic'}`}
         open={isViewModalVisible}
         onCancel={() => setIsViewModalVisible(false)}
         footer={[

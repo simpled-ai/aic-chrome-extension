@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FloatButton, Modal, Input, Button, Space, Typography, message, Tabs } from 'antd';
 import { SaveOutlined, SearchOutlined } from '@ant-design/icons';
 import { ConversationSearch } from './ConversationSearch';
@@ -9,6 +9,8 @@ export const ChatGPTSaveButton: React.FC = () => {
   const [isMainModalVisible, setIsMainModalVisible] = useState(false);
   const [isKeyModalVisible, setIsKeyModalVisible] = useState(false);
   const [label, setLabel] = useState('');
+  const [pain, setPain] = useState('');
+  const [conversationContent, setConversationContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -50,6 +52,18 @@ export const ChatGPTSaveButton: React.FC = () => {
     }
   };
 
+  const refreshConversationContent = () => {
+    const conversation = extractLatestConversation();
+    setConversationContent(conversation);
+  };
+
+  // Populate conversation content when save tab is active or modal opens
+  useEffect(() => {
+    if (isMainModalVisible && activeTab === 'save') {
+      refreshConversationContent();
+    }
+  }, [isMainModalVisible, activeTab]);
+
   const validateKey = async (inputKey: string) => {
     setIsValidating(true);
     try {
@@ -89,9 +103,13 @@ export const ChatGPTSaveButton: React.FC = () => {
       return;
     }
 
-    const conversation = extractLatestConversation();
-    if (!conversation) {
-      message.error('No conversation found to save');
+    if (!pain.trim()) {
+      message.error('Please enter a pain point for the conversation');
+      return;
+    }
+
+    if (!conversationContent.trim()) {
+      message.error('No conversation content to save');
       return;
     }
 
@@ -104,10 +122,11 @@ export const ChatGPTSaveButton: React.FC = () => {
           {
             type: 'SAVE_CHATGPT_CONVERSATION',
             payload: {
-              content: conversation,
+              content: conversationContent.trim(),
               collection_name: 'ai_tools_materials',
               metadata: {
                 topic: label.trim(),
+                pain: pain.trim(),
                 author: 'user',
                 source: 'chatgpt_conversation',
                 category: 'ai_tools',
@@ -126,6 +145,8 @@ export const ChatGPTSaveButton: React.FC = () => {
       if (response.success) {
         message.success('Conversation saved successfully!');
         setLabel('');
+        setPain('');
+        setConversationContent('');
       } else {
         message.error(response.error || 'Failed to save conversation');
       }
@@ -140,6 +161,8 @@ export const ChatGPTSaveButton: React.FC = () => {
   const handleMainModalCancel = () => {
     setIsMainModalVisible(false);
     setLabel('');
+    setPain('');
+    setConversationContent('');
     setActiveTab('save');
   };
 
@@ -179,21 +202,28 @@ export const ChatGPTSaveButton: React.FC = () => {
           </div>
           
           <div>
+            <Text strong>Guidebook Topic</Text>
+            <Input
+              placeholder="Enter the guidebook topic or problem this conversation addresses (e.g., 'Confusion about camera settings', 'Lack of confidence, not knowing where to start.')"
+              value={pain}
+              onChange={(e) => setPain(e.target.value)}
+              onPressEnter={handleSave}
+            />
+          </div>
+          
+          <div>
             <Text strong>Preview</Text>
-            <div style={{ 
-              maxHeight: '12.5rem', 
-              overflow: 'auto', 
-              border: '1px solid #d9d9d9', 
-              borderRadius: '0.375rem', 
-              padding: '0.5rem',
-              backgroundColor: '#fafafa',
-              fontSize: '0.75rem'
-            }}>
-              {(() => {
-                const conversation = extractLatestConversation();
-                return conversation || 'No conversation found';
-              })()}
-            </div>
+            <Input.TextArea
+              value={conversationContent}
+              onChange={(e) => setConversationContent(e.target.value)}
+              placeholder="Conversation content will appear here. You can edit it before saving."
+              rows={8}
+              style={{
+                fontSize: '0.75rem',
+                fontFamily: 'monospace',
+                lineHeight: '1.2'
+              }}
+            />
           </div>
 
           <Text type="secondary" style={{ fontSize: '0.75rem' }}>
@@ -206,7 +236,7 @@ export const ChatGPTSaveButton: React.FC = () => {
               type="primary"
               onClick={handleSave}
               loading={isSaving}
-              disabled={!label.trim()}
+              disabled={!label.trim() || !pain.trim()}
               icon={<SaveOutlined />}
             >
               Save Conversation

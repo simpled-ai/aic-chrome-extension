@@ -228,6 +228,7 @@ const saveChatGPTConversation = async (
     collection_name: string;
     metadata: {
       topic: string;
+      pain: string;
       author: string;
       source: string;
       category: string;
