@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FloatButton, Modal, Input, Button, Space, Typography, message, Tabs } from 'antd';
+import { FloatButton, Modal, Input, Button, Space, Typography, message, Tabs, Select } from 'antd';
 import { SaveOutlined, SearchOutlined } from '@ant-design/icons';
 import { ConversationSearch } from './ConversationSearch';
 
@@ -8,11 +8,12 @@ const { Text } = Typography;
 export const ChatGPTSaveButton: React.FC = () => {
   const [isMainModalVisible, setIsMainModalVisible] = useState(false);
   const [isKeyModalVisible, setIsKeyModalVisible] = useState(false);
-  const [label, setLabel] = useState('');
-  const [pain, setPain] = useState('');
+  const [selectedOption, setSelectedOption] = useState('');
+  const [painTopicOptions, setPainTopicOptions] = useState<Array<{value: string, label: string, pain: string, topic: string}>>([]);
   const [conversationContent, setConversationContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [isLoadingFacets, setIsLoadingFacets] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState('');
   const [activeTab, setActiveTab] = useState('save');
@@ -55,6 +56,91 @@ export const ChatGPTSaveButton: React.FC = () => {
     }
   }, [isMainModalVisible, activeTab]);
 
+  // Fetch pain facets and their associated topics
+  useEffect(() => {
+    const fetchPainTopicCombinations = async () => {
+      if (!apiKey) return;
+      
+      setIsLoadingFacets(true);
+      try {
+        // First, fetch all pain facets
+        const painResponse = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+          chrome.runtime.sendMessage(
+            {
+              type: 'GET_METADATA_FACETS',
+              payload: {
+                collection_name: 'ai_tools_materials',
+                metadata_key: 'pain'
+              },
+              apiKey
+            },
+            (response) => {
+              resolve(response);
+            }
+          );
+        });
+        
+        if (!painResponse.success || !painResponse.data) {
+          console.error('Failed to fetch pain facets:', painResponse.error);
+          message.error('Failed to load pain points');
+          return;
+        }
+
+        const pains = painResponse.data.facet_values || [];
+        const options: Array<{value: string, label: string, pain: string, topic: string}> = [];
+
+        // For each pain, fetch topics that contain this pain
+        for (const pain of pains) {
+          const topicResponse = await new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+            chrome.runtime.sendMessage(
+              {
+                type: 'GET_METADATA_FACETS',
+                payload: {
+                  collection_name: 'ai_tools_materials',
+                  metadata_key: 'topic',
+                  filter: {
+                    "must": [{
+                      "key": "metadata.pain",
+                      "match": {
+                        "value": pain
+                      }
+                    }]
+                  }
+                },
+                apiKey
+              },
+              (response) => {
+                resolve(response);
+              }
+            );
+          });
+
+          if (topicResponse.success && topicResponse.data) {
+            const topics = topicResponse.data.facet_values || [];
+            // Create an option for each pain-topic combination
+            topics.forEach((topic: string) => {
+              options.push({
+                value: `${pain}|||${topic}`, // Use ||| as separator
+                label: `${pain} - ${topic}`,
+                pain: pain,
+                topic: topic
+              });
+            });
+          }
+        }
+
+        setPainTopicOptions(options);
+      } catch (error) {
+        console.error('Error fetching pain-topic combinations:', error);
+        message.error('Failed to load pain-topic combinations');
+      } finally {
+        setIsLoadingFacets(false);
+      }
+    };
+
+    fetchPainTopicCombinations();
+  }, [apiKey]);
+
   const validateKey = async (inputKey: string) => {
     setIsValidating(true);
     try {
@@ -89,13 +175,15 @@ export const ChatGPTSaveButton: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!label.trim()) {
-      message.error('Please enter a label for the conversation');
+    if (!selectedOption.trim()) {
+      message.error('Please select a guidebook topic');
       return;
     }
 
-    if (!pain.trim()) {
-      message.error('Please enter a pain point for the conversation');
+    // Extract pain and topic from selected option
+    const [pain, topic] = selectedOption.split('|||');
+    if (!pain || !topic) {
+      message.error('Invalid selection format');
       return;
     }
 
@@ -116,7 +204,7 @@ export const ChatGPTSaveButton: React.FC = () => {
               content: conversationContent.trim(),
               collection_name: 'ai_tools_materials',
               metadata: {
-                topic: label.trim(),
+                topic: topic.trim(),
                 pain: pain.trim(),
                 author: 'user',
                 source: 'chatgpt_conversation',
@@ -135,8 +223,7 @@ export const ChatGPTSaveButton: React.FC = () => {
 
       if (response.success) {
         message.success('Conversation saved successfully!');
-        setLabel('');
-        setPain('');
+        setSelectedOption('');
         setConversationContent('');
       } else {
         message.error(response.error || 'Failed to save conversation');
@@ -151,8 +238,7 @@ export const ChatGPTSaveButton: React.FC = () => {
 
   const handleMainModalCancel = () => {
     setIsMainModalVisible(false);
-    setLabel('');
-    setPain('');
+    setSelectedOption('');
     setConversationContent('');
     setActiveTab('save');
   };
@@ -182,24 +268,26 @@ export const ChatGPTSaveButton: React.FC = () => {
       children: (
         <Space direction="vertical" style={{ width: '100%' }}>
           <div>
-            <Text strong>Conversation Label</Text>
-            <Input
-              placeholder="Enter a label for this conversation (e.g., 'Python Code Review', 'Marketing Strategy Discussion')"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onPressEnter={handleSave}
+            <Text strong>Guidebook Topic</Text>
+            <Select
+              placeholder="Select a guidebook topic"
+              style={{ width: '100%' }}
+              value={selectedOption}
+              onChange={setSelectedOption}
+              allowClear
+              loading={isLoadingFacets}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={painTopicOptions}
               autoFocus={activeTab === 'save'}
             />
-          </div>
-          
-          <div>
-            <Text strong>Guidebook Topic</Text>
-            <Input
-              placeholder="Enter the guidebook topic or problem this conversation addresses (e.g., 'Confusion about camera settings', 'Lack of confidence, not knowing where to start.')"
-              value={pain}
-              onChange={(e) => setPain(e.target.value)}
-              onPressEnter={handleSave}
-            />
+            {painTopicOptions.length > 0 && (
+              <Text type="secondary" style={{ fontSize: '0.75rem' }}>
+                ({painTopicOptions.length} pain-topic combinations available)
+              </Text>
+            )}
           </div>
           
           <div>
@@ -227,7 +315,7 @@ export const ChatGPTSaveButton: React.FC = () => {
               type="primary"
               onClick={handleSave}
               loading={isSaving}
-              disabled={!label.trim() || !pain.trim()}
+              disabled={!selectedOption.trim()}
               icon={<SaveOutlined />}
             >
               Save Conversation
