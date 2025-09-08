@@ -29,20 +29,11 @@ export const ChatGPTSaveButton: React.FC = () => {
 
       let conversationText = '';
       
-      // Get the latest conversation (last user message + last assistant response)
-      if (userMessages.length > 0 && assistantMessages.length > 0) {
-        const lastUserMessage = userMessages[userMessages.length - 1];
-        const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
-        
-        const userText = lastUserMessage.textContent || (lastUserMessage as HTMLElement).innerText || '';
-        const assistantText = lastAssistantMessage.textContent || (lastAssistantMessage as HTMLElement).innerText || '';
-        
-        conversationText = `User: ${userText}\n\nAssistant: ${assistantText}`;
-      } else if (assistantMessages.length > 0) {
-        // If only assistant message exists
+      // Get only the latest assistant response
+      if (assistantMessages.length > 0) {
         const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
         const assistantText = lastAssistantMessage.textContent || (lastAssistantMessage as HTMLElement).innerText || '';
-        conversationText = `Assistant: ${assistantText}`;
+        conversationText = assistantText;
       }
 
       return conversationText.trim();
