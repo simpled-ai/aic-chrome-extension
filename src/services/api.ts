@@ -170,3 +170,53 @@ export const createVideoSummary = async (videoId: string): Promise<VideoSummary>
     );
   });
 }; 
+
+// Function to send specific research content to API
+export const sendResearchContent = async (topic: string, text: string, apiKey: string, id?: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (topic.trim().length === 0 || text.trim().length === 0) {
+      return { success: false, error: 'Topic or text is empty' };
+    }
+    
+    // Send message to background script
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          type: 'SEND_RESEARCH_RESULT',
+          payload: {
+            metadata: {
+              topic: topic,
+              author: 'system',
+              source: 'deep_research',
+              document_id: id,
+            },
+            collection_name: 'aff_materials',
+            content: text
+          },
+          apiKey: apiKey
+        },
+        (response) => {
+          resolve(response);
+        }
+      );
+    });
+  } catch (error) {
+    return { success: false, error: `Error sending research content: ${error}` };
+  }
+}; 
+
+export const getAllResearchTopics = async (apiKey: string) => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'GET_ALL_RESEARCH_TOPICS', apiKey: apiKey },
+      (response) => {
+        if (response.error) {
+          console.error(response.error)
+          resolve([])
+        } else {
+          resolve(response.data || []);
+        }
+      }
+    );
+  });
+};

@@ -5,7 +5,7 @@ const Popup = () => {
   return (
     <div style={{ padding: '20px', width: '300px' }}>
       <h1>AIC Chrome Extension</h1>
-      <p>This extension adds a floating button to X (Twitter), YouTube, Facebook, Trustpilot, Coursera, Udemy, and Klingai.</p>
+      <p>This extension adds a floating button to X (Twitter), YouTube, Facebook, Trustpilot, Coursera, Udemy, KlingAI, and ChatGPT.</p>
     </div>
   );
 };

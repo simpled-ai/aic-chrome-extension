@@ -16,8 +16,11 @@
     "https://www.udemy.com/*",
     "https://app.klingai.com/*",
     "https://community.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
     "http://localhost:3000/*",
-    "http://intranet.aic.academy/web-crawler/*"
+    "http://intranet.aic.academy/web-crawler/*",
+    "http://13.229.113.45:8080/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -34,7 +37,9 @@
         "https://www.coursera.org/*",
         "https://www.udemy.com/*",
         "https://app.klingai.com/*",
-        "https://community.openai.com/*"
+        "https://community.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
       ],
       "js": ["content.js"]
     }

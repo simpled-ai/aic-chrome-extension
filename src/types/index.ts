@@ -21,7 +21,7 @@ export interface CreateTaskResponse {
   };
 }
 
-export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT' | 'FACEBOOK' | 'COURSERA' | 'UDEMY' | 'KLINGAI' | 'OPENAI_COMMUNITY';
+export type Platform = 'TWITTER' | 'YOUTUBE' | 'TRUSTPILOT' | 'FACEBOOK' | 'COURSERA' | 'UDEMY' | 'KLINGAI' | 'OPENAI_COMMUNITY' | 'CHATGPT';
 export type CrawlType = 'CONTENT' | 'PROFILE' | 'KEYWORD';
 
 export interface ContentExtractResult {

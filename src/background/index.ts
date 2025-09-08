@@ -38,6 +38,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ error: error.message }));
     return true; // Will respond asynchronously
   }
+
+  if (request.type === 'SEND_RESEARCH_RESULT') {
+    sendResearchResult(request.payload, request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
+
+  if (request.type === 'GET_ALL_RESEARCH_TOPICS') {
+    getAllResearchTopics(request.apiKey)
+      .then(sendResponse)
+      .catch((error: Error) => sendResponse({ success: false, error: error.message }));
+    return true; // Will respond asynchronously
+  }
 });
 
 const getTaskStatus = async (tweetId: string): Promise<TaskStatusResponse> => {
@@ -109,6 +123,75 @@ const createVideoSummary = async (payload: {
     throw new Error('Failed to create video summary');
   }
   return response.json();
+};
+
+const sendResearchResult = async (
+  payload: {
+    metadata: {
+      topic: string;
+      author: string;
+      source: string;
+      documentId?: string;
+    },
+    collection_name: string;
+    content: string;
+  },
+  apiKey: string
+) => {
+  try {
+    // API endpoint - replace with your actual API URL
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/import';
+    
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      return { success: false, error: `API request failed` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error sending research result: ${error}` };
+  }
+};
+
+const getAllResearchTopics = async (apiKey: string) => {
+  try {
+    // API endpoint - replace with your actual API URL
+    const API_ENDPOINT = 'http://13.229.113.45:8080/api/documents/list';
+    const payload = {
+      "collection_name": 'aff_materials',
+      "group_by": 'metadata.topic',
+      "limit": 100,
+      "offset": 0
+    };
+
+    // Send to API
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const data = await response.json().then(data => data['documents']);
+      return { success: true, data };
+    } else {
+      return { success: false, error: `API request failed` };
+    }
+  } catch (error) {
+    return { success: false, error: `Error sending research result: ${error}` };
+  }
 };
 
 // Listen for when a tab is updated

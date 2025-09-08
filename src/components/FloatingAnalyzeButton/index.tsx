@@ -8,6 +8,7 @@ import { getTaskStatus } from '../../services/api';
 import { AnalyzeButton } from './AnalyzeButton';
 import { ReportModal } from './ReportModal';
 import { YouTubeSummarizer } from '../YouTubeSummarizer';
+import { KeyModal } from './KeyModal';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -165,6 +166,8 @@ export const FloatingAnalyzeButton: React.FC = () => {
     }
   }, [contentInfo]);
 
+  const isChatGptPage = window.location.href.includes('chatgpt.com') || window.location.href.includes('openai.com');
+
   return (
     <>
       <FloatButton.Group style={{ bottom: bottomInset, zIndex: 10000 }}>
@@ -186,10 +189,16 @@ export const FloatingAnalyzeButton: React.FC = () => {
         <YouTubeSummarizer />
       </FloatButton.Group>
 
-      <ReportModal
-        isVisible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-      />
+      {isChatGptPage 
+        ?<KeyModal
+          isVisible={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+        /> 
+        :<ReportModal
+          isVisible={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+        />
+      }
     </>
   );
 }; 
