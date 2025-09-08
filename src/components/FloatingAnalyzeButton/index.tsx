@@ -9,6 +9,7 @@ import { AnalyzeButton } from './AnalyzeButton';
 import { ReportModal } from './ReportModal';
 import { YouTubeSummarizer } from '../YouTubeSummarizer';
 import { KeyModal } from './KeyModal';
+import { ChatGPTSaveButton } from './ChatGPTSaveButton';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -187,6 +188,7 @@ export const FloatingAnalyzeButton: React.FC = () => {
           tooltip="Create report"
         />
         <YouTubeSummarizer />
+        {isChatGptPage && <ChatGPTSaveButton />}
       </FloatButton.Group>
 
       {isChatGptPage 
